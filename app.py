@@ -13,6 +13,7 @@ from flask import (
 
 app = Flask(__name__)
 app.secret_key = "elearn_demo_secret_key_not_for_prod"
+EXAM_CACHE = {}
 
 DATABASE = os.path.join(os.path.dirname(__file__), "elearn.db")
 
@@ -133,6 +134,24 @@ def init_db():
             completed_at TEXT NOT NULL,
             UNIQUE(user_id, course_id)
         );
+        CREATE TABLE IF NOT EXISTS exam_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            course_id TEXT,
+            score INTEGER,
+            total INTEGER,
+            percentage REAL,
+            created_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS exam_completions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            course_id TEXT,
+            percentage REAL,
+            certificate_id TEXT UNIQUE,
+            created_at TEXT,
+            UNIQUE(user_id, course_id)
+        );
     """)
     # Seed demo users
     users = [
@@ -251,6 +270,47 @@ def get_user_stats(user_id):
 def all_lessons_visited(user_id, course_id):
     return get_course_progress(user_id, course_id) == 100
 
+def mark_course_lessons_completed(user_id, course_id):
+    db = get_db()
+    lessons = db.execute("SELECT id FROM lessons WHERE course_id=?", (course_id,)).fetchall()
+    now = datetime.utcnow().isoformat()
+    for lesson_row in lessons:
+        db.execute(
+            "INSERT OR IGNORE INTO progress (user_id, course_id, lesson_id, visited_at) VALUES (?,?,?,?)",
+            (user_id, course_id, lesson_row["id"], now),
+        )
+    return len(lessons)
+
+def ensure_certificates_for_user(user_id):
+    db = get_db()
+    passed_courses = db.execute(
+        """
+        SELECT course_id, MAX(percentage) AS best_score
+        FROM quiz_results
+        WHERE user_id=? AND percentage>=70
+        GROUP BY course_id
+        """,
+        (user_id,),
+    ).fetchall()
+    created = 0
+    for row in passed_courses:
+        existing = db.execute(
+            "SELECT id FROM completions WHERE user_id=? AND course_id=?",
+            (user_id, row["course_id"]),
+        ).fetchone()
+        if existing:
+            continue
+        mark_course_lessons_completed(user_id, row["course_id"])
+        if get_course_progress(user_id, row["course_id"]) == 100:
+            db.execute(
+                "INSERT OR IGNORE INTO completions (user_id, course_id, quiz_score, certificate_id, completed_at) VALUES (?,?,?,?,?)",
+                (user_id, row["course_id"], row["best_score"], str(uuid.uuid4()), datetime.utcnow().isoformat()),
+            )
+            created += 1
+    if created:
+        db.commit()
+    return created
+
 def anonymize_name(name):
     parts = (name or "Student").split()
     if len(parts) == 1:
@@ -272,6 +332,67 @@ def extract_json_object(text):
             except json.JSONDecodeError:
                 return None
     return None
+
+def get_course_with_lessons(course_id):
+    db = get_db()
+    c = db.execute("SELECT * FROM courses WHERE id=?", (course_id,)).fetchone()
+    if not c:
+        return None
+    lessons_rows = db.execute("SELECT * FROM lessons WHERE course_id=? ORDER BY lesson_order", (course_id,)).fetchall()
+    return {
+        "id": c["id"],
+        "title": c["title"],
+        "emoji": c["emoji"],
+        "lessons": [{"id": l["id"], "title": l["title"], "content": l["content"]} for l in lessons_rows],
+    }
+
+def fallback_exam_questions(topic, lesson_text):
+    base = [
+        ("What is the main purpose of studying this course?", ["To build practical knowledge", "To avoid practice", "To memorize random facts", "To skip examples"], 0),
+        ("Which learning habit is most useful for this course?", ["Practicing with examples", "Ignoring feedback", "Reading titles only", "Avoiding review"], 0),
+        ("What should a student do after learning a new concept?", ["Apply it in a small exercise", "Forget the definition", "Close the lesson", "Skip the summary"], 0),
+        ("Why are key concepts important?", ["They help connect theory to practice", "They remove the need to learn", "They replace exercises", "They are only decorative"], 0),
+    ]
+    questions = []
+    for i in range(20):
+        template = base[i % len(base)]
+        questions.append({
+            "question": f"{template[0]} ({topic}, item {i + 1})",
+            "options": template[1],
+            "correct": template[2],
+        })
+    return questions
+
+def normalize_exam_questions(raw_questions, topic, lesson_text):
+    questions = []
+    if isinstance(raw_questions, list):
+        for item in raw_questions:
+            if not isinstance(item, dict):
+                continue
+            question = str(item.get("question", "")).strip()
+            options = item.get("options", [])
+            correct = item.get("correct", None)
+            if not question or not isinstance(options, list) or len(options) != 4:
+                continue
+            try:
+                correct = int(correct)
+            except (TypeError, ValueError):
+                continue
+            if correct < 0 or correct > 3:
+                continue
+            questions.append({
+                "question": question,
+                "options": [str(opt).strip() for opt in options],
+                "correct": correct,
+            })
+            if len(questions) == 20:
+                break
+    if len(questions) < 20:
+        questions = fallback_exam_questions(topic, lesson_text)
+    return questions[:20]
+
+def public_exam_questions(questions):
+    return [{"question": q["question"], "options": q["options"]} for q in questions]
 
 # ─────────────────────────────────────────────
 #  GEMINI BACKEND HELPERS
@@ -379,6 +500,7 @@ def logout():
 def dashboard():
     db = get_db()
     user_id = session["user_id"]
+    ensure_certificates_for_user(user_id)
     notes_count = db.execute("SELECT COUNT(*) FROM notes WHERE user_id=?", (user_id,)).fetchone()[0]
     stats = get_user_stats(user_id)
     courses_rows = db.execute("SELECT * FROM courses ORDER BY created_at ASC").fetchall()
@@ -502,6 +624,15 @@ def quiz(course_id):
         course = {"id": course_id, "title": "General Knowledge", "emoji": "book"}
     return render_template("quiz.html", user=current_user(), course=course)
 
+@app.route("/exam/<course_id>")
+@login_required
+def exam(course_id):
+    course = get_course_with_lessons(course_id)
+    if not course:
+        flash("Course not found.", "danger")
+        return redirect(url_for("courses"))
+    return render_template("exam.html", user=current_user(), course=course)
+
 @app.route("/notes", methods=["GET", "POST"])
 @login_required
 def notes():
@@ -539,6 +670,7 @@ def notes():
 @login_required
 def profile():
     db = get_db()
+    ensure_certificates_for_user(session["user_id"])
     if request.method == "POST":
         new_name = request.form.get("name", "").strip()
         if new_name:
@@ -554,14 +686,25 @@ def profile():
     quiz_count = db.execute("SELECT COUNT(*) FROM quiz_results WHERE user_id=?", (session["user_id"],)).fetchone()[0]
     certificates = db.execute(
         """
-        SELECT cp.*, c.title AS course_title
+        SELECT ec.course_id, ec.percentage AS quiz_score, ec.certificate_id,
+               ec.created_at AS completed_at, c.title AS course_title
+        FROM exam_completions ec
+        JOIN courses c ON c.id = ec.course_id
+        WHERE ec.user_id=?
+        UNION ALL
+        SELECT cp.course_id, cp.quiz_score AS quiz_score, cp.certificate_id,
+               cp.completed_at AS completed_at, c.title AS course_title
         FROM completions cp
         JOIN courses c ON c.id = cp.course_id
         WHERE cp.user_id=?
-        ORDER BY cp.completed_at DESC
+          AND NOT EXISTS (
+            SELECT 1 FROM exam_completions ec
+            WHERE ec.user_id=cp.user_id AND ec.course_id=cp.course_id
+          )
+        ORDER BY completed_at DESC
         LIMIT 3
         """,
-        (session["user_id"],),
+        (session["user_id"], session["user_id"]),
     ).fetchall()
     return render_template(
         "profile.html", user=current_user(), notes_count=notes_count, stats=stats,
@@ -580,15 +723,27 @@ def settings():
 @login_required
 def certificates():
     db = get_db()
+    ensure_certificates_for_user(session["user_id"])
     rows = db.execute(
         """
-        SELECT cp.*, c.title AS course_title, c.emoji AS course_emoji
+        SELECT ec.course_id, ec.percentage AS quiz_score, ec.certificate_id,
+               ec.created_at AS completed_at, c.title AS course_title, c.emoji AS course_emoji
+        FROM exam_completions ec
+        JOIN courses c ON c.id = ec.course_id
+        WHERE ec.user_id=?
+        UNION ALL
+        SELECT cp.course_id, cp.quiz_score AS quiz_score, cp.certificate_id,
+               cp.completed_at AS completed_at, c.title AS course_title, c.emoji AS course_emoji
         FROM completions cp
         JOIN courses c ON c.id = cp.course_id
         WHERE cp.user_id=?
-        ORDER BY cp.completed_at DESC
+          AND NOT EXISTS (
+            SELECT 1 FROM exam_completions ec
+            WHERE ec.user_id=cp.user_id AND ec.course_id=cp.course_id
+          )
+        ORDER BY completed_at DESC
         """,
-        (session["user_id"],),
+        (session["user_id"], session["user_id"]),
     ).fetchall()
     return render_template("certificates.html", user=current_user(), certificates=rows)
 
@@ -596,17 +751,30 @@ def certificates():
 @login_required
 def certificate(course_id):
     db = get_db()
+    ensure_certificates_for_user(session["user_id"])
     completion = db.execute(
         """
-        SELECT cp.*, c.title AS course_title
+        SELECT ec.percentage AS score, ec.certificate_id AS certificate_id,
+               ec.created_at AS completed_at, c.title AS course_title
+        FROM exam_completions ec
+        JOIN courses c ON c.id = ec.course_id
+        WHERE ec.user_id=? AND ec.course_id=?
+        """,
+        (session["user_id"], course_id),
+    ).fetchone()
+    if not completion:
+        completion = db.execute(
+        """
+        SELECT cp.quiz_score AS score, cp.certificate_id AS certificate_id,
+               cp.completed_at AS completed_at, c.title AS course_title
         FROM completions cp
         JOIN courses c ON c.id = cp.course_id
         WHERE cp.user_id=? AND cp.course_id=?
         """,
         (session["user_id"], course_id),
-    ).fetchone()
+        ).fetchone()
     if not completion:
-        flash("Complete all lessons and pass the quiz to unlock this certificate.", "info")
+        flash("Complete all lessons and pass the final exam to unlock this certificate.", "info")
         return redirect(url_for("courses"))
 
     from reportlab.lib import colors
@@ -648,7 +816,7 @@ def certificate(course_id):
     pdf.drawCentredString(width / 2, height - 11.05 * cm, completion["course_title"])
     pdf.setFillColor(colors.HexColor("#f8fcff"))
     pdf.setFont("Helvetica", 14)
-    pdf.drawCentredString(width / 2, height - 12.55 * cm, f"Quiz Score: {completion['quiz_score']:.0f}%")
+    pdf.drawCentredString(width / 2, height - 12.55 * cm, f"Score: {completion['score']:.0f}%")
     pdf.drawCentredString(width / 2, height - 13.45 * cm, f"Completed on {format_date(completion['completed_at'], completion['completed_at'])}")
     pdf.setFillColor(colors.HexColor("#b7c6d8"))
     pdf.setFont("Helvetica-Bold", 13)
@@ -1067,7 +1235,11 @@ def api_quiz_save():
         (session["user_id"], course_id, score, total, percentage, datetime.utcnow().isoformat()),
     )
     certificate_earned = False
-    if percentage >= 70 and all_lessons_visited(session["user_id"], course_id):
+    course_progress = get_course_progress(session["user_id"], course_id)
+    if percentage >= 70:
+        mark_course_lessons_completed(session["user_id"], course_id)
+        course_progress = get_course_progress(session["user_id"], course_id)
+    if percentage >= 70 and course_progress == 100:
         existing = db.execute(
             "SELECT id FROM completions WHERE user_id=? AND course_id=?",
             (session["user_id"], course_id),
@@ -1081,7 +1253,118 @@ def api_quiz_save():
             )
             certificate_earned = True
     db.commit()
-    return jsonify({"saved": True, "certificate_earned": certificate_earned})
+    return jsonify({
+        "saved": True,
+        "certificate_earned": certificate_earned,
+        "course_progress": course_progress,
+        "passed": percentage >= 70,
+    })
+
+@app.route("/api/exam/generate", methods=["POST"])
+@login_required
+def api_exam_generate():
+    data = request.get_json() or {}
+    course_id = str(data.get("course_id", "")).strip()
+    course = get_course_with_lessons(course_id)
+    if not course:
+        return jsonify({"error": "Course not found."}), 404
+    lesson_text = "\n\n".join(
+        f"{lesson['title']}\n{lesson['content'] or ''}"
+        for lesson in course["lessons"]
+    )
+    prompt = f"""Generate exactly 20 multiple choice final exam questions for the course "{course['title']}".
+
+Use all of this course material:
+{lesson_text[:8000]}
+
+Return ONLY a valid JSON array, no markdown, no backticks.
+Each item must use this exact format:
+[
+  {{
+    "question": "Question text",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0
+  }}
+]
+"correct" must be the zero-based index of the correct option.
+Make the questions practical, fair, and based on the lessons."""
+    text = call_gemini(prompt, temperature=0.5, max_tokens=3500)
+    raw_questions = None
+    if text:
+        try:
+            clean = text.replace("```json", "").replace("```", "").strip()
+            start = clean.find("[")
+            end = clean.rfind("]")
+            raw_questions = json.loads(clean[start:end + 1] if start != -1 and end != -1 else clean)
+        except Exception:
+            raw_questions = None
+    questions = normalize_exam_questions(raw_questions, course["title"], lesson_text)
+    EXAM_CACHE[(session["user_id"], course_id)] = {
+        "questions": questions,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    return jsonify({"questions": public_exam_questions(questions), "total": 20})
+
+@app.route("/api/exam/submit", methods=["POST"])
+@login_required
+def api_exam_submit():
+    data = request.get_json() or {}
+    course_id = str(data.get("course_id", "")).strip()
+    if not course_id:
+        return jsonify({"saved": False, "error": "Course is required."}), 400
+    cached = EXAM_CACHE.get((session["user_id"], course_id))
+    answers = data.get("answers")
+    if cached and isinstance(answers, list):
+        questions = cached["questions"]
+        total = len(questions)
+        score = 0
+        for idx, question in enumerate(questions):
+            try:
+                selected = int(answers[idx])
+            except (IndexError, TypeError, ValueError):
+                selected = -1
+            if selected == question["correct"]:
+                score += 1
+        percentage = round((score / total) * 100, 2) if total else 0
+    else:
+        try:
+            score = int(data.get("score", 0))
+            total = int(data.get("total", 0))
+            percentage = float(data.get("percentage", 0))
+        except (TypeError, ValueError):
+            return jsonify({"saved": False, "error": "Invalid exam result."}), 400
+        if total <= 0:
+            return jsonify({"saved": False, "error": "Invalid exam total."}), 400
+        percentage = max(0, min(100, percentage))
+    db = get_db()
+    db.execute(
+        "INSERT INTO exam_results (user_id, course_id, score, total, percentage, created_at) VALUES (?,?,?,?,?,?)",
+        (session["user_id"], course_id, score, total, percentage, datetime.utcnow().isoformat()),
+    )
+    certificate_earned = False
+    if percentage >= 70 and all_lessons_visited(session["user_id"], course_id):
+        existing = db.execute(
+            "SELECT id FROM exam_completions WHERE user_id=? AND course_id=?",
+            (session["user_id"], course_id),
+        ).fetchone()
+        if existing:
+            certificate_earned = True
+        else:
+            db.execute(
+                "INSERT OR IGNORE INTO exam_completions (user_id, course_id, percentage, certificate_id, created_at) VALUES (?,?,?,?,?)",
+                (session["user_id"], course_id, percentage, str(uuid.uuid4()), datetime.utcnow().isoformat()),
+            )
+            certificate_earned = True
+    db.commit()
+    return jsonify({
+        "saved": True,
+        "score": score,
+        "total": total,
+        "percentage": percentage,
+        "passed": percentage >= 70,
+        "certificate_earned": certificate_earned,
+        "lessons_completed": all_lessons_visited(session["user_id"], course_id),
+    })
 
 # ─────────────────────────────────────────────
 #  MAIN

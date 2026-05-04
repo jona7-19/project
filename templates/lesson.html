@@ -48,6 +48,7 @@
           </div>
         </div>
         <div style="display:flex;gap:10px;flex-shrink:0;">
+          <a href="{{ url_for('exam', course_id=course.id) }}" class="btn btn-primary btn-sm" style="text-decoration:none;"><i data-lucide="graduation-cap" style="width:14px;height:14px;vertical-align:-2px;margin-right:2px;"></i> Start Final Exam</a>
           <a href="{{ url_for('quiz', course_id=course.id) }}" class="btn btn-secondary btn-sm" style="text-decoration:none;"><i data-lucide="brain" style="width:14px;height:14px;vertical-align:-2px;margin-right:2px;"></i> Take Quiz</a>
         </div>
       </div>
@@ -118,6 +119,7 @@
         <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
           <a href="{{ url_for('notes') }}" class="btn btn-secondary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="file-edit" style="width:14px;height:14px;margin-right:6px;"></i> Add Note</a>
           <a href="{{ url_for('quiz', course_id=course.id) }}" class="btn btn-secondary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="brain" style="width:14px;height:14px;margin-right:6px;"></i> Take Quiz</a>
+          <a href="{{ url_for('exam', course_id=course.id) }}" class="btn btn-primary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="graduation-cap" style="width:14px;height:14px;margin-right:6px;"></i> Start Final Exam</a>
           {% if completion %}
           <a href="{{ url_for('certificate', course_id=course.id) }}" class="btn btn-primary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="award" style="width:14px;height:14px;margin-right:6px;"></i> Certificate</a>
           {% endif %}

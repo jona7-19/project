@@ -207,9 +207,12 @@ async function saveQuizResult(pct) {
       document.getElementById('certificate-banner').style.display = 'block';
       document.getElementById('download-certificate').style.display = 'inline-flex';
       lucide.createIcons();
+    } else if (data.saved && data.passed) {
+      document.getElementById('result-label').textContent = 'Quiz passed. Open the course lessons once, then retake to unlock the certificate.';
     }
   } catch (err) {
     console.warn('Could not save quiz result:', err);
+    document.getElementById('result-label').textContent = 'Quiz finished, but the score could not be saved. Please try again.';
   }
 }
 

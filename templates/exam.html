@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Final Exam - E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  .quiz-container { max-width:760px;margin:0 auto;padding:40px 0 80px; }
+  .quiz-header { text-align:center;margin-bottom:40px; }
+  .quiz-progress-row { display:flex;align-items:center;gap:14px;margin-bottom:8px; }
+  .q-counter { font-size:13px;color:var(--text-muted);white-space:nowrap; }
+  .quiz-card { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .question-num { font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px; }
+  .question-text { font-family:var(--font-head);font-size:1.2rem;font-weight:700;line-height:1.4;margin-bottom:28px;color:var(--text-primary); }
+  .options-list { display:flex;flex-direction:column;gap:10px; }
+  .option-btn { display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg-card2);border:1.5px solid var(--border);border-radius:var(--radius-md);cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all var(--transition);text-align:left;width:100%; }
+  .option-btn:hover:not(:disabled) { border-color:var(--accent);color:var(--text-primary);transform:translateY(-2px);box-shadow:0 10px 24px rgba(34,211,238,0.08); }
+  .option-btn.selected { border-color:var(--accent);background:rgba(34,211,238,0.1);color:var(--text-primary); }
+  .option-letter { width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0; }
+  .quiz-footer { display:flex;align-items:center;justify-content:space-between;margin-top:24px;flex-wrap:wrap;gap:12px; }
+  .result-screen { text-align:center;padding:20px 0; }
+  .result-score { font-family:var(--font-head);font-size:4rem;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:8px; }
+  .result-label { font-size:1.1rem;color:var(--text-secondary);margin-bottom:24px; }
+  .result-breakdown { display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0; }
+  .breakdown-item { background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center; }
+  .breakdown-num { font-family:var(--font-head);font-size:1.5rem;font-weight:800;margin-bottom:4px; }
+  .breakdown-label { font-size:12px;color:var(--text-muted); }
+  .result-actions { display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px; }
+  .certificate-banner { display:none;margin:0 0 22px;padding:18px;border:1px solid rgba(34,211,238,0.35);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(34,211,238,0.14),rgba(124,107,255,0.12));color:var(--text-primary); }
+  .certificate-banner strong { display:block;font-family:var(--font-head);font-size:1.15rem;margin-bottom:4px;color:var(--accent); }
+  .loading-spinner { text-align:center;padding:60px 20px;color:var(--text-secondary); }
+  .spinner { width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="quiz-container">
+    <div class="quiz-header">
+      <div class="section-label">Certification</div>
+      <h1 class="section-title" style="display:flex;align-items:center;justify-content:center;gap:12px;"><i data-lucide="graduation-cap" style="width:36px;height:36px;color:var(--accent);"></i> {{ course.title }} Final Exam</h1>
+      <p class="section-subtitle" style="margin:0 auto;text-align:center;">20 questions · Certificate requires 70%</p>
+    </div>
+
+    <div id="exam-start" class="quiz-card">
+      <div class="result-screen">
+        <div style="margin-bottom:18px;"><i data-lucide="shield-check" style="width:64px;height:64px;color:var(--accent);"></i></div>
+        <div class="result-label">Start the final exam when you are ready. Questions are generated only after you click the button.</div>
+        <button class="btn btn-primary" id="start-exam-btn"><i data-lucide="play" style="width:16px;height:16px;"></i> Start Final Exam</button>
+      </div>
+    </div>
+
+    <div id="exam-loading" class="quiz-card" style="display:none;">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Generating final exam...</p>
+      </div>
+    </div>
+
+    <div id="exam-in-progress" style="display:none;">
+      <div class="quiz-progress-row">
+        <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" id="exam-progress-bar" style="width:0%"></div></div>
+        <span class="q-counter" id="q-counter">1 / 20</span>
+      </div>
+      <div class="quiz-card">
+        <div class="question-num" id="question-num">Question 1</div>
+        <div class="question-text" id="question-text"></div>
+        <div class="options-list" id="options-list"></div>
+        <div class="quiz-footer">
+          <button class="btn btn-ghost" id="prev-btn" disabled>Previous</button>
+          <button class="btn btn-primary" id="next-btn" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="exam-result" style="display:none;">
+      <div class="quiz-card">
+        <div class="result-screen">
+          <div class="certificate-banner" id="certificate-banner">
+            <strong>🎓 Certificate Earned</strong>
+            <span>Your final exam score qualifies for certification.</span>
+          </div>
+          <div class="result-score" id="result-pct">0%</div>
+          <div class="result-label" id="result-label">Final exam submitted.</div>
+          <div class="result-breakdown">
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-correct" style="color:var(--success);">0</div><div class="breakdown-label">Correct</div></div>
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-wrong" style="color:var(--danger);">0</div><div class="breakdown-label">Wrong</div></div>
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-total" style="color:var(--accent);">20</div><div class="breakdown-label">Total</div></div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-secondary" id="retry-btn"><i data-lucide="refresh-cw" style="width:14px;height:14px;margin-right:6px;"></i> Retry Exam</button>
+            <a href="{{ url_for('certificate', course_id=course.id) }}" class="btn btn-primary" id="download-certificate" style="display:none;text-decoration:none;"><i data-lucide="download" style="width:14px;height:14px;margin-right:6px;"></i> Download Certificate</a>
+            <a href="{{ url_for('lesson', course_id=course.id) }}" class="btn btn-ghost" style="text-decoration:none;">Back to Lesson</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const COURSE_ID = '{{ course.id }}';
+let questions = [];
+let currentQ = 0;
+let answers = [];
+
+document.getElementById('start-exam-btn').addEventListener('click', startExam);
+document.getElementById('retry-btn').addEventListener('click', startExam);
+document.getElementById('prev-btn').addEventListener('click', () => {
+  if (currentQ > 0) {
+    currentQ--;
+    showQuestion();
+  }
+});
+document.getElementById('next-btn').addEventListener('click', () => {
+  if (currentQ >= questions.length - 1) submitExam();
+  else {
+    currentQ++;
+    showQuestion();
+  }
+});
+
+async function startExam() {
+  document.getElementById('exam-start').style.display = 'none';
+  document.getElementById('exam-result').style.display = 'none';
+  document.getElementById('exam-in-progress').style.display = 'none';
+  document.getElementById('exam-loading').style.display = 'block';
+  currentQ = 0;
+  answers = [];
+  try {
+    const res = await fetch('/api/exam/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: COURSE_ID })
+    });
+    const data = await res.json();
+    questions = data.questions || [];
+    if (!questions.length) throw new Error('No exam questions');
+    answers = new Array(questions.length).fill(null);
+    document.getElementById('exam-loading').style.display = 'none';
+    document.getElementById('exam-in-progress').style.display = 'block';
+    showQuestion();
+  } catch (err) {
+    document.querySelector('#exam-loading p').textContent = 'Could not generate the exam. Please try again.';
+  }
+}
+
+function showQuestion() {
+  const q = questions[currentQ];
+  const letters = ['A', 'B', 'C', 'D'];
+  document.getElementById('question-num').textContent = `Question ${currentQ + 1}`;
+  document.getElementById('question-text').textContent = q.question;
+  document.getElementById('q-counter').textContent = `${currentQ + 1} / ${questions.length}`;
+  document.getElementById('exam-progress-bar').style.width = `${(currentQ / questions.length) * 100}%`;
+  document.getElementById('prev-btn').disabled = currentQ === 0;
+  document.getElementById('next-btn').disabled = answers[currentQ] === null;
+  document.getElementById('next-btn').textContent = currentQ >= questions.length - 1 ? 'Submit Exam' : 'Next';
+  document.getElementById('options-list').innerHTML = q.options.map((option, idx) => `
+    <button class="option-btn ${answers[currentQ] === idx ? 'selected' : ''}" onclick="selectAnswer(${idx})">
+      <span class="option-letter">${letters[idx]}</span>${option}
+    </button>
+  `).join('');
+}
+
+function selectAnswer(index) {
+  answers[currentQ] = index;
+  showQuestion();
+}
+
+async function submitExam() {
+  document.getElementById('exam-in-progress').style.display = 'none';
+  document.getElementById('exam-loading').style.display = 'block';
+  document.querySelector('#exam-loading p').textContent = 'Submitting final exam...';
+  const res = await fetch('/api/exam/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ course_id: COURSE_ID, answers })
+  });
+  const data = await res.json();
+  document.getElementById('exam-loading').style.display = 'none';
+  document.getElementById('exam-result').style.display = 'block';
+  document.getElementById('result-pct').textContent = Math.round(data.percentage || 0) + '%';
+  document.getElementById('bd-correct').textContent = data.score || 0;
+  document.getElementById('bd-wrong').textContent = (data.total || 0) - (data.score || 0);
+  document.getElementById('bd-total').textContent = data.total || 0;
+  if (data.certificate_earned) {
+    document.getElementById('certificate-banner').style.display = 'block';
+    document.getElementById('download-certificate').style.display = 'inline-flex';
+    document.getElementById('result-label').textContent = 'Certificate unlocked.';
+  } else if (data.passed && !data.lessons_completed) {
+    document.getElementById('result-label').textContent = 'Exam passed. Complete all lessons to unlock the certificate.';
+  } else {
+    document.getElementById('result-label').textContent = 'Retry Exam';
+  }
+  lucide.createIcons();
+}
+</script>
+{% endblock %}

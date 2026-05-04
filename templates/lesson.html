@@ -130,19 +130,19 @@
   </div>
 </div>
 
-<!-- CHATBOT BUTTON -->
-<button id="chatbot-btn" title="AI Lesson Assistant">
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+<!-- CHATBOT SIDE PANEL -->
+<button id="chatbot-tab" title="AI Lesson Assistant" aria-controls="chatbot-panel" aria-expanded="false">
+  <i data-lucide="bot" style="width:20px;height:20px;"></i>
+  <span class="chatbot-tab-text">AI</span>
   <span class="chat-pulse"></span>
 </button>
-
-<!-- CHATBOT POPUP -->
-<div id="chatbot-popup">
+<div id="chatbot-overlay"></div>
+<aside id="chatbot-panel" aria-hidden="true">
   <div class="chat-header">
     <div class="chat-header-info">
       <div class="chat-avatar"><i data-lucide="bot" style="width:20px;height:20px;"></i></div>
       <div>
-        <div class="chat-header-title">Lesson Assistant</div>
+        <div class="chat-header-title">AI Lesson Assistant</div>
         <div class="chat-header-status">● Online</div>
       </div>
     </div>
@@ -168,7 +168,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
     </button>
   </div>
-</div>
+</aside>
 {% endblock %}
 
 {% block extra_js %}
@@ -210,14 +210,24 @@ Lesson {{ lesson_idx + 1 }}: {{ lesson.title|e }}
 
 {{ lesson.desc|e }}`;
 
-const btn      = document.getElementById('chatbot-btn');
-const popup    = document.getElementById('chatbot-popup');
+const btn      = document.getElementById('chatbot-tab');
+const popup    = document.getElementById('chatbot-panel');
+const overlay  = document.getElementById('chatbot-overlay');
 const closeBtn = document.getElementById('chat-close');
 const sendBtn  = document.getElementById('chat-send');
 const input    = document.getElementById('chat-input');
 
-btn.addEventListener('click', () => popup.classList.toggle('open'));
-closeBtn.addEventListener('click', () => popup.classList.remove('open'));
+function setChatOpen(open) {
+  popup.classList.toggle('open', open);
+  overlay.classList.toggle('open', open);
+  btn.classList.toggle('hidden', open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  popup.setAttribute('aria-hidden', open ? 'false' : 'true');
+}
+
+btn.addEventListener('click', () => setChatOpen(true));
+closeBtn.addEventListener('click', () => setChatOpen(false));
+overlay.addEventListener('click', () => setChatOpen(false));
 sendBtn.addEventListener('click', sendMessage);
 input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
 
@@ -229,11 +239,10 @@ function sendMessage() {
   input.value = '';
   appendMessage('user', msg);
   showTyping();
-  const apiKey = localStorage.getItem('ai_api_key') || '';
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question: msg, lesson_content: LESSON_CONTENT, api_key: apiKey })
+    body: JSON.stringify({ question: msg, lesson_content: LESSON_CONTENT })
   })
   .then(r => r.json())
   .then(data => {

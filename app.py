@@ -17,7 +17,7 @@ EXAM_CACHE = {}
 
 DATABASE = os.path.join(os.path.dirname(__file__), "elearn.db")
 
-GEMINI_API_KEY = "AIzaSyDagJmyzASVD-Fj0WmYvHD55X9Gc9vIj0A"
+GEMINI_API_KEY = "AIzaSyCQXW0Ncj821t7qlsgb_5gMrq2fBUBezIY"
 
 # ─────────────────────────────────────────────
 #  COURSES & LESSONS DATA

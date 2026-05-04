@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit Course{% else %}New Course{% endif %} — Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+  .form-page { max-width:860px;margin:0 auto;padding:40px 0 80px; }
+  .form-section { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:24px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .form-section-head { padding:18px 24px;border-bottom:1px solid var(--border);font-family:var(--font-head);font-size:1rem;font-weight:700;display:flex;align-items:center;gap:8px; }
+  .form-body { padding:28px; }
+  .lesson-entry { background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:16px;position:relative; }
+  .lesson-entry-num { font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px; }
+  .remove-lesson { position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-muted);transition:color var(--transition); }
+  .remove-lesson:hover { color:var(--danger); }
+  .color-preview { width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);flex-shrink:0; }
+  .form-row { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+  @media(max-width:600px){.form-row{grid-template-columns:1fr;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div style="padding:28px 0 0;">
+    <a href="{{ url_for('admin') }}" onclick="safeBackNavigation('{{ url_for('admin') }}'); return false;" class="btn btn-ghost btn-sm" style="text-decoration:none;">← Back to Admin</a>
+  </div>
+  <div class="form-page">
+    <div style="margin-bottom:28px;">
+      <div class="section-label">{{ 'Edit' if editing else 'Create' }} Course</div>
+      <h1 style="font-size:1.8rem;font-weight:800;display:flex;align-items:center;gap:12px;">{% if editing %}<i data-lucide="edit-3" style="width:28px;height:28px;color:var(--text-muted);"></i> Edit Course{% else %}<i data-lucide="plus" style="width:28px;height:28px;color:var(--text-muted);"></i> New Course{% endif %}</h1>
+    </div>
+
+    <form method="POST" id="course-form" enctype="multipart/form-data">
+      <!-- Course details -->
+      <div class="form-section">
+        <div class="form-section-head"><i data-lucide="clipboard-list" style="width:18px;height:18px;margin-right:6px;"></i> Course Details</div>
+        <div class="form-body">
+          <div class="form-group">
+            <label class="form-label">Course Title *</label>
+            <input type="text" name="title" placeholder="e.g. Introduction to Machine Learning" required value="{{ course.title if editing else '' }}"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea name="description" placeholder="Brief course description…" style="height:80px;resize:vertical;">{{ course.description if editing else '' }}</textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Lucide Icon Name</label>
+              <input type="text" name="emoji" placeholder="book-open" maxlength="20" value="{{ course.emoji if editing else 'book' }}" style="font-family:monospace;"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Level</label>
+              <select name="level">
+                <option value="beginner"     {% if editing and course.level=='beginner'     %}selected{% endif %}>Beginner</option>
+                <option value="intermediate" {% if editing and course.level=='intermediate' %}selected{% endif %}>Intermediate</option>
+                <option value="advanced"     {% if editing and course.level=='advanced'     %}selected{% endif %}>Advanced</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Category</label>
+              <select name="category">
+                <option value="development" {% if editing and course.category=='development' %}selected{% endif %}>Development</option>
+                <option value="data"        {% if editing and course.category=='data'        %}selected{% endif %}>Data Science</option>
+                <option value="design"      {% if editing and course.category=='design'      %}selected{% endif %}>Design</option>
+                <option value="marketing"   {% if editing and course.category=='marketing'   %}selected{% endif %}>Marketing</option>
+                <option value="general"     {% if editing and course.category=='general'     %}selected{% endif %}>General</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estimated Hours</label>
+              <input type="number" name="hours" min="0" max="200" placeholder="0" value="{{ course.hours if editing else 0 }}"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Accent Color</label>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="color-preview" id="color-preview" style="background:{{ course.color if editing else '#1a2a4a' }};"></div>
+              <input type="color" name="color" id="color-input" value="{{ course.color if editing else '#1a2a4a' }}" style="width:60px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:none;"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Course PDF Upload -->
+      <div class="form-section">
+        <div class="form-section-head"><i data-lucide="file-text" style="width:18px;height:18px;margin-right:6px;"></i> Course Material (PDF)</div>
+        <div class="form-body">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Upload a single PDF for this course</label>
+            <div id="pdf-drop-zone" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:40px 20px;text-align:center;cursor:pointer;transition:all var(--transition);background:var(--bg-input);">
+              <i data-lucide="upload-cloud" style="width:40px;height:40px;color:var(--text-muted);margin-bottom:12px;"></i>
+              <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Drag and drop a PDF here</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">or click to browse from your computer</div>
+              <span class="btn btn-secondary btn-sm">Select File</span>
+              <div id="pdf-file-name" style="margin-top:16px;font-size:13px;color:var(--accent);font-weight:600;word-break:break-all;"></div>
+            </div>
+            <input type="file" name="course_pdf" id="course-pdf-input" accept="application/pdf" style="display:none;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Lessons -->
+      <div class="form-section">
+        <div class="form-section-head" style="justify-content:space-between;">
+          <span><i data-lucide="book-open" style="width:18px;height:18px;vertical-align:-3px;margin-right:6px;"></i> Lessons</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="add-lesson-btn"><i data-lucide="plus" style="width:14px;height:14px;"></i> Add Lesson</button>
+        </div>
+        <div class="form-body">
+          <div id="lessons-container">
+            {% if editing and lessons %}
+              {% for l in lessons %}
+              <div class="lesson-entry" id="lesson-{{ loop.index0 }}">
+                <div class="lesson-entry-num">Lesson {{ loop.index }}</div>
+                <button type="button" class="remove-lesson" onclick="removeLesson(this)" title="Remove lesson"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+                <div class="form-group">
+                  <label class="form-label">Title</label>
+                  <input type="text" name="lesson_title[]" placeholder="Lesson title…" value="{{ l.title }}" required/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Content / Description</label>
+                  <textarea name="lesson_content[]" placeholder="Lesson content (supports multiple lines)…" style="height:120px;resize:vertical;">{{ l.content }}</textarea>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="lesson-entry" id="lesson-0">
+                <div class="lesson-entry-num">Lesson 1</div>
+                <div class="form-group">
+                  <label class="form-label">Title</label>
+                  <input type="text" name="lesson_title[]" placeholder="Lesson title…" required/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Content / Description</label>
+                  <textarea name="lesson_content[]" placeholder="Lesson content (supports multiple lines)…" style="height:120px;resize:vertical;"></textarea>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div style="display:flex;gap:12px;justify-content:flex-end;">
+        <a href="{{ url_for('admin') }}" onclick="safeBackNavigation('{{ url_for('admin') }}'); return false;" class="btn btn-ghost" style="text-decoration:none;">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          {% if editing %}<i data-lucide="save" style="width:16px;height:16px;"></i> Save Changes{% else %}<i data-lucide="rocket" style="width:16px;height:16px;"></i> Publish Course{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let lessonCount = document.querySelectorAll('.lesson-entry').length;
+
+  document.getElementById('add-lesson-btn').addEventListener('click', () => {
+    lessonCount++;
+    const div = document.createElement('div');
+    div.className = 'lesson-entry';
+    div.id = 'lesson-' + lessonCount;
+    div.innerHTML = `
+      <div class="lesson-entry-num">Lesson ${lessonCount}</div>
+      <button type="button" class="remove-lesson" onclick="removeLesson(this)" title="Remove"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" name="lesson_title[]" placeholder="Lesson title…" required/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Content / Description</label>
+        <textarea name="lesson_content[]" placeholder="Lesson content…" style="height:120px;resize:vertical;"></textarea>
+      </div>`;
+    document.getElementById('lessons-container').appendChild(div);
+    lucide.createIcons();
+  });
+
+  function removeLesson(btn) {
+    const entry = btn.closest('.lesson-entry');
+    if (document.querySelectorAll('.lesson-entry').length > 1) {
+      entry.remove();
+      // Re-number
+      document.querySelectorAll('.lesson-entry-num').forEach((el, i) => el.textContent = `Lesson ${i + 1}`);
+    }
+  }
+
+  // Color preview
+  const colorInput = document.getElementById('color-input');
+  const colorPreview = document.getElementById('color-preview');
+  if (colorInput) {
+    colorInput.addEventListener('input', () => colorPreview.style.background = colorInput.value);
+  }
+
+  // Drag and drop for PDF
+  const dropZone = document.getElementById('pdf-drop-zone');
+  const fileInput = document.getElementById('course-pdf-input');
+  const fileNameDisplay = document.getElementById('pdf-file-name');
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) {
+        fileNameDisplay.textContent = `Selected: ${fileInput.files[0].name}`;
+        dropZone.style.borderColor = 'var(--accent)';
+      } else {
+        fileNameDisplay.textContent = '';
+        dropZone.style.borderColor = 'var(--border)';
+      }
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--accent)';
+      dropZone.style.background = 'rgba(0, 212, 255, 0.05)';
+    });
+
+    ['dragleave', 'dragend'].forEach(type => {
+      dropZone.addEventListener(type, () => {
+        dropZone.style.borderColor = fileInput.files.length ? 'var(--accent)' : 'var(--border)';
+        dropZone.style.background = 'var(--bg-input)';
+      });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.background = 'var(--bg-input)';
+      
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.type === 'application/pdf') {
+          fileInput.files = e.dataTransfer.files;
+          fileNameDisplay.textContent = `Selected: ${file.name}`;
+          dropZone.style.borderColor = 'var(--accent)';
+        } else {
+          alert('Please upload a valid PDF file.');
+          dropZone.style.borderColor = 'var(--border)';
+        }
+      }
+    });
+  }
+</script>
+{% endblock %}

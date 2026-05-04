@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Profile - E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  .profile-layout { display:grid;grid-template-columns:300px 1fr;gap:28px;padding:40px 0 80px; }
+  .profile-card { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 24px;text-align:center;position:sticky;top:88px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .profile-avatar-big { width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:#f8fcff;margin:0 auto 18px;border:3px solid var(--border-light);box-shadow:0 0 30px rgba(34,211,238,0.2); }
+  .profile-name { font-family:var(--font-head);font-size:1.2rem;font-weight:800;margin-bottom:4px; }
+  .profile-email { font-size:13px;color:var(--text-muted);margin-bottom:20px; }
+  .profile-badge { display:inline-flex;align-items:center;gap:6px;background:rgba(34,211,160,0.1);border:1px solid rgba(34,211,160,0.3);border-radius:100px;padding:4px 14px;font-size:12px;font-weight:600;color:var(--success);margin-bottom:24px; }
+  .profile-stats-mini { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0; }
+  .p-stat { background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 8px; }
+  .p-stat-num { font-family:var(--font-head);font-size:1.3rem;font-weight:800;color:var(--accent); }
+  .p-stat-label { font-size:11px;color:var(--text-muted);margin-top:2px; }
+  .settings-section { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:22px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .settings-section-head { padding:18px 24px;border-bottom:1px solid var(--border);font-family:var(--font-head);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px; }
+  .settings-row { display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--border);gap:20px;flex-wrap:wrap; }
+  .settings-row:last-child { border-bottom:none; }
+  .settings-label { font-size:14px;font-weight:600;margin-bottom:3px; }
+  .settings-desc { font-size:12px;color:var(--text-muted); }
+  .achievements-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:12px; }
+  .achievement { background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 10px;text-align:center;transition:all var(--transition); }
+  .achievement.locked { opacity:0.45;filter:grayscale(0.5); }
+  .cert-mini { display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 24px;border-bottom:1px solid var(--border); }
+  .cert-mini:last-child { border-bottom:none; }
+  @media(max-width:900px){.profile-layout{grid-template-columns:1fr;}.profile-card{position:static;}}
+  @media(max-width:600px){.achievements-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <div class="section-label">Account</div>
+    <h1 class="page-hero-title">My Profile</h1>
+    <p class="page-hero-subtitle">Manage your account settings and learning progress.</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="profile-layout">
+    <div>
+      <div class="profile-card">
+        <div class="profile-avatar-big">{{ user.name[0]|upper }}</div>
+        <div class="profile-name">{{ user.name }}</div>
+        <div class="profile-email">{{ user.email }}</div>
+        <div class="profile-badge">● {{ 'Admin' if user.role == 'admin' else 'Active Student' }}</div>
+        <div class="profile-stats-mini">
+          <div class="p-stat"><div class="p-stat-num">{{ notes_count }}</div><div class="p-stat-label">Notes</div></div>
+          <div class="p-stat"><div class="p-stat-num">{{ stats.total_courses_started }}</div><div class="p-stat-label">Courses</div></div>
+          <div class="p-stat"><div class="p-stat-num">{{ stats.total_lessons_completed }}</div><div class="p-stat-label">Lessons</div></div>
+          <div class="p-stat"><div class="p-stat-num">{{ quiz_count }}</div><div class="p-stat-label">Quizzes</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+          <a href="{{ url_for('certificates') }}" class="btn btn-primary btn-sm" style="text-decoration:none;"><i data-lucide="award" style="width:14px;height:14px;margin-right:6px;"></i> Certificates</a>
+          <a href="{{ url_for('courses') }}" class="btn btn-secondary btn-sm" style="text-decoration:none;"><i data-lucide="book-open" style="width:14px;height:14px;margin-right:6px;"></i> My Courses</a>
+          <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm" style="text-decoration:none;"><i data-lucide="log-out" style="width:14px;height:14px;margin-right:6px;"></i> Sign Out</a>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="settings-section">
+        <div class="settings-section-head"><span><i data-lucide="user" style="width:16px;height:16px;"></i> Personal Information</span></div>
+        <div style="padding:24px;">
+          <form method="POST" action="{{ url_for('profile') }}">
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" value="{{ user.name }}" placeholder="Your full name"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" value="{{ user.email }}" readonly style="opacity:0.6;cursor:not-allowed;"/>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary"><i data-lucide="save" style="width:16px;height:16px;"></i> Save Changes</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-head">
+          <span><i data-lucide="award" style="width:16px;height:16px;"></i> Certificates</span>
+          <a href="{{ url_for('certificates') }}" class="btn btn-ghost btn-sm">View All</a>
+        </div>
+        {% for cert in certificates %}
+        <div class="cert-mini">
+          <div>
+            <div class="settings-label">{{ cert.course_title }}</div>
+            <div class="settings-desc">{{ cert.completed_at|pretty_date }} - Score {{ "%.0f"|format(cert.quiz_score) }}% - ID {{ cert.certificate_id[:8] }}</div>
+          </div>
+          <a href="{{ url_for('certificate', course_id=cert.course_id) }}" class="btn btn-secondary btn-sm">Download</a>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:36px 20px;">Complete every lesson and pass a quiz to earn your first certificate.</div>
+        {% endfor %}
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-head"><span><i data-lucide="sparkles" style="width:16px;height:16px;"></i> Achievements</span></div>
+        <div style="padding:24px;">
+          <div class="achievements-grid">
+            <div class="achievement {% if stats.total_lessons_completed < 1 %}locked{% endif %}"><div><i data-lucide="target" style="width:28px;height:28px;color:var(--accent);"></i></div><div class="p-stat-label">First Lesson</div></div>
+            <div class="achievement"><div><i data-lucide="flame" style="width:28px;height:28px;color:var(--accent2);fill:var(--accent2);"></i></div><div class="p-stat-label">7-Day Streak</div></div>
+            <div class="achievement {% if stats.quizzes_passed < 1 %}locked{% endif %}"><div><i data-lucide="brain" style="width:28px;height:28px;color:var(--success);"></i></div><div class="p-stat-label">Quiz Pass</div></div>
+            <div class="achievement {% if notes_count < 1 %}locked{% endif %}"><div><i data-lucide="file-edit" style="width:28px;height:28px;color:var(--warning);"></i></div><div class="p-stat-label">Note Taker</div></div>
+            <div class="achievement {% if stats.certificates < 1 %}locked{% endif %}"><div><i data-lucide="graduation-cap" style="width:28px;height:28px;color:var(--accent);"></i></div><div class="p-stat-label">Graduate</div></div>
+            <div class="achievement {% if stats.courses_with_full_progress < 1 %}locked{% endif %}"><div><i data-lucide="star" style="width:28px;height:28px;color:var(--warning);"></i></div><div class="p-stat-label">Course Master</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

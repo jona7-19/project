@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}AI Course Generator - E-Learn Pro{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <div class="section-label">Administration</div>
+    <h1 class="page-hero-title">Generate Course with AI</h1>
+    <p class="page-hero-subtitle">Create a structured course in one Gemini request, then refine it from the admin panel.</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="ai-form-card glass-panel">
+    <form method="POST" action="{{ url_for('admin_ai_generate') }}" id="ai-generate-form">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Topic</label>
+          <input type="text" name="topic" placeholder="Cybersecurity Basics" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level</label>
+          <select name="level">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category">
+            <option value="development">Development</option>
+            <option value="data">Data</option>
+            <option value="design">Design</option>
+            <option value="marketing">Marketing</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of lessons</label>
+          <select name="num_lessons">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estimated hours</label>
+          <input type="number" name="hours" value="4" min="1" max="80" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Icon name</label>
+          <input type="text" name="emoji" value="book-open" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Accent color</label>
+          <input type="color" name="color" value="#00d4ff" />
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+        <button type="submit" class="btn btn-primary" id="generate-btn"><i data-lucide="sparkles" style="width:16px;height:16px;"></i> Generate with AI</button>
+        <a href="{{ url_for('admin') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const form = document.getElementById('ai-generate-form');
+  const btn = document.getElementById('generate-btn');
+  form.addEventListener('submit', () => {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-circle" style="width:16px;height:16px;"></i> Generating...';
+    lucide.createIcons();
+  });
+</script>
+{% endblock %}

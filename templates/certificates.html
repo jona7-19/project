@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Certificates - E-Learn Pro{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <div class="section-label">Achievements</div>
+    <h1 class="page-hero-title">Certificates</h1>
+    <p class="page-hero-subtitle">Your official E-Learn Pro course completions.</p>
+  </div>
+</div>
+
+<div class="container certificate-page">
+  <div class="certificate-grid">
+    {% for cert in certificates %}
+    <div class="certificate-card glass-panel">
+      <div class="certificate-icon"><i data-lucide="{{ cert.course_emoji }}" style="width:34px;height:34px;"></i></div>
+      <div>
+        <div class="certificate-title">{{ cert.course_title }}</div>
+        <div class="certificate-meta">{{ cert.completed_at|pretty_date }} · Score {{ "%.0f"|format(cert.quiz_score) }}% · ID {{ cert.certificate_id[:8] }}</div>
+      </div>
+      <a href="{{ url_for('certificate', course_id=cert.course_id) }}" class="btn btn-primary btn-sm"><i data-lucide="download" style="width:14px;height:14px;"></i> Download</a>
+    </div>
+    {% else %}
+    <div class="empty-state" style="grid-column:1/-1;">
+      <div class="empty-state-icon"><i data-lucide="award" style="width:42px;height:42px;"></i></div>
+      <div class="empty-state-title">No certificates yet</div>
+      <div class="empty-state-text">Visit every lesson in a course and score at least 70% on its quiz.</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

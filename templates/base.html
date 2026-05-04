@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta name="theme-color" content="#050a12" />
+  <title>{% block title %}E-Learn Pro{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    // Apply the saved appearance early to prevent a theme flash.
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme === 'light' ? 'light' : 'dark');
+  </script>
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+  {# ── PAGE TRANSITION OVERLAY ── #}
+  <div class="page-transition-overlay" id="page-transition"></div>
+
+  {# ── FLASH MESSAGES ── #}
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+  <div style="position:fixed;top:80px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;">
+    {% for cat, msg in msgs %}
+    <div class="toast {{ cat }}" style="display:block;opacity:1;transform:none;position:relative;">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  {# ── NAVBAR ── #}
+  {% block navbar %}
+  <nav class="navbar {% block nav_class %}{% endblock %}" id="main-nav">
+    <div class="container" style="max-width: none; padding-left: 5vw; padding-right: 5vw;">
+      <a href="{{ url_for('dashboard') if session.user_id else url_for('landing') }}" class="nav-logo">
+        <span class="logo-dot"></span>E-Learn<span>Pro</span>
+      </a>
+      {% if session.user_id %}
+      <ul class="nav-links" id="nav-links">
+        <li><a href="{{ url_for('dashboard') }}" {% if request.endpoint=='dashboard' %}class="active" {% endif
+            %}>Dashboard</a></li>
+        <li><a href="{{ url_for('courses') }}" {% if request.endpoint=='courses' %}class="active" {% endif
+            %}>Courses</a></li>
+        <li><a href="{{ url_for('notes') }}" {% if request.endpoint=='notes' %}class="active" {% endif %}>Notes</a></li>
+        <li><a href="{{ url_for('leaderboard') }}" {% if request.endpoint=='leaderboard' %}class="active" {% endif
+            %}>Leaderboard</a></li>
+        <li><a href="{{ url_for('profile') }}" {% if request.endpoint=='profile' %}class="active" {% endif
+            %}>Profile</a></li>
+        <li><a href="{{ url_for('settings') }}" {% if request.endpoint=='settings' %}class="active" {% endif
+            %}>Settings</a></li>
+        {% if session.role == 'admin' %}
+        <li><a href="{{ url_for('admin') }}" {% if request.endpoint=='admin' %}class="active" {% endif %}><i
+              data-lucide="settings" style="width:16px;height:16px;vertical-align:-3px;"></i> Admin</a></li>
+        {% endif %}
+      </ul>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="{{ url_for('profile') }}" class="nav-avatar" title="{{ session.name }}"
+          style="text-decoration: none; color: inherit;">
+          {{ session.name[0]|upper if session.name else 'U' }}
+        </a>
+        <button class="nav-toggle" id="nav-toggle"><span></span><span></span><span></span></button>
+      </div>
+      {% else %}
+      <ul class="nav-links" id="nav-links">
+        <li><a href="{{ url_for('landing') }}#features">Features</a></li>
+        <li><a href="{{ url_for('landing') }}#courses">Courses</a></li>
+        <li><a href="{{ url_for('login') }}">Sign In</a></li>
+      </ul>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-sm" style="text-decoration:none;">Get Started</a>
+        <button class="nav-toggle" id="nav-toggle"><span></span><span></span><span></span></button>
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+  {% endblock %}
+
+  {% block body %}
+  <div class="page-wrapper" style="display:flex; flex-direction:column; min-height:calc(100vh - var(--nav-h));">
+    <main class="main-content page-enter" style="flex:1;">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="main-footer">
+      <div class="container">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <div class="nav-logo" style="margin-bottom:12px;">
+              <span class="logo-dot"></span>E-Learn<span>Pro</span>
+            </div>
+            <p class="footer-desc">Empowering learners worldwide with accessible, high-quality education and AI-driven
+              tools.</p>
+          </div>
+          <div class="footer-links">
+            <div class="footer-col">
+              <h4>Contact Us</h4>
+              <ul>
+                <li><a href="mailto:[EMAIL_ADDRESS]"><i data-lucide="mail"
+                      style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"></i>younesdana2004@gmail.com</a>
+                </li>
+                <li><a href="tel:+1234567890"><i data-lucide="phone"
+                      style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"></i> +1 (234) 567-890</a>
+                </li>
+                <li><span style="color:var(--text-muted);"><i data-lucide="map-pin"
+                      style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;"></i> 123 Learning Ave, NY
+                    10001</span></li>
+              </ul>
+            </div>
+            <div class="footer-col">
+              <h4>Follow Us</h4>
+              <div class="social-links">
+                <a href="https://www.facebook.com/share/1DeX4jXbyf/" aria-label="Facebook" id="social-facebook">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                  </svg>
+                </a>
+                <a href="https://x.com/JONA7_one" aria-label="X (Twitter)" id="social-x">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 4l11.733 16h4.267l-11.733 -16z" />
+                    <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" />
+                  </svg>
+                </a>
+                <a href="https://www.instagram.com/jona7_one.1?igsh=MWFiMGt5ZW03bjAxaQ==" aria-label="Instagram"
+                  id="social-instagram">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                  </svg>
+                </a>
+                <a href="https://www.linkedin.com/in/younes-dana-1b1598356?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"
+                  aria-label="LinkedIn" id="social-linkedin">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+                    <rect width="4" height="12" x="2" y="9" />
+                    <circle cx="4" cy="4" r="2" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2026 E-Learn Pro. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+  {% endblock %}
+
+  <script>
+    // Mobile nav toggle
+    const toggle = document.getElementById('nav-toggle');
+    const links = document.getElementById('nav-links');
+    if (toggle && links) {
+      toggle.addEventListener('click', () => links.classList.toggle('mobile-open'));
+      document.addEventListener('click', e => {
+        if (!toggle.contains(e.target) && !links.contains(e.target))
+          links.classList.remove('mobile-open');
+      });
+    }
+    // Auto-dismiss flash toasts
+    setTimeout(() => {
+      document.querySelectorAll('.toast').forEach(t => {
+        t.style.opacity = '0'; t.style.transition = 'opacity 0.4s';
+        setTimeout(() => t.remove(), 400);
+      });
+    }, 3500);
+
+    // Scroll Animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+        }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => observer.observe(el));
+
+    // Lightweight neon cursor trail
+    (() => {
+      const finePointer = window.matchMedia('(pointer: fine)').matches;
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!finePointer || reducedMotion) return;
+
+      const count = 10;
+      const dots = [];
+      const fragment = document.createDocumentFragment();
+      let mouseX = window.innerWidth / 2;
+      let mouseY = window.innerHeight / 2;
+      let active = false;
+      let idleTimer = null;
+
+      for (let i = 0; i < count; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'cursor-trail-dot';
+        dot.style.width = `${18 - i * 0.72}px`;
+        dot.style.height = `${18 - i * 0.72}px`;
+        dot.style.setProperty('--trail-opacity', `${0.42 - i * 0.026}`);
+        fragment.appendChild(dot);
+        dots.push({ el: dot, x: mouseX, y: mouseY });
+      }
+      document.body.appendChild(fragment);
+
+      document.addEventListener('pointermove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (!active) {
+          active = true;
+          dots.forEach(dot => dot.el.classList.add('is-visible'));
+        }
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          active = false;
+          dots.forEach(dot => dot.el.classList.remove('is-visible'));
+        }, 1100);
+      }, { passive: true });
+
+      document.addEventListener('pointerleave', () => {
+        clearTimeout(idleTimer);
+        active = false;
+        dots.forEach(dot => dot.el.classList.remove('is-visible'));
+      });
+
+      function animateTrail() {
+        let x = mouseX;
+        let y = mouseY;
+        dots.forEach((dot, index) => {
+          const ease = 0.25 - index * 0.009;
+          dot.x += (x - dot.x) * ease;
+          dot.y += (y - dot.y) * ease;
+          dot.el.style.transform = `translate3d(${dot.x}px, ${dot.y}px, 0) translate(-50%, -50%) scale(${1 - index * 0.035})`;
+          x = dot.x;
+          y = dot.y;
+        });
+        requestAnimationFrame(animateTrail);
+      }
+      animateTrail();
+    })();
+
+    // Page Transition System
+    const ptOverlay = document.getElementById('page-transition');
+    if (ptOverlay) {
+      // Enter animation on load
+      ptOverlay.classList.add('enter-active');
+      ptOverlay.addEventListener('animationend', function handler() {
+        ptOverlay.classList.remove('enter-active');
+        ptOverlay.removeEventListener('animationend', handler);
+      });
+      // Fix bfcache issue on browser back button
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+          ptOverlay.classList.remove('exit-active');
+        }
+      });
+
+      // We removed the script that blocked navigation incorrectly
+      // Normal navigation will naturally preserve history
+
+      // Handle form submissions to show exit animation smoothly without blocking navigation
+      document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', () => {
+          ptOverlay.classList.add('exit-active');
+        });
+      });
+    }
+
+    // Safe Back Navigation logic
+    window.safeBackNavigation = function (fallbackUrl = '/') {
+      if (window.history.length > 1) {
+        window.history.back();
+      } else {
+        window.location.href = fallbackUrl;
+      }
+    };
+
+    lucide.createIcons();
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+
+</html>

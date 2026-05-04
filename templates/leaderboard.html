@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard - E-Learn Pro{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <div class="section-label">Student Rankings</div>
+    <h1 class="page-hero-title">🏆 Leaderboard</h1>
+    <p class="page-hero-subtitle">Ranked by completed lessons, earned certificates, and quiz performance.</p>
+  </div>
+</div>
+
+<div class="container leaderboard-page">
+  <div class="podium-grid">
+    {% for student in top_three %}
+    <div class="podium-card rank-{{ student.rank }} {% if student.is_current %}current-user{% endif %}">
+      <div class="podium-rank">{% if student.rank == 1 %}🥇{% elif student.rank == 2 %}🥈{% else %}🥉{% endif %}</div>
+      <div class="podium-name">{{ student.name }}</div>
+      <div class="podium-points">{{ student.total_score }} pts</div>
+      <div class="podium-stats">
+        <span>{{ student.lessons_completed }} lessons</span>
+        <span>{{ student.courses_completed }} courses</span>
+        <span>{{ "%.0f"|format(student.best_quiz_score) }}% best</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state" style="grid-column:1/-1;">No student activity yet.</div>
+    {% endfor %}
+  </div>
+
+  <div class="leaderboard-table-wrap">
+    <table class="leaderboard-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Name</th>
+          <th>Lessons</th>
+          <th>Courses Done</th>
+          <th>Best Score</th>
+          <th>Total Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in ranked %}
+        <tr class="{% if student.is_current %}current-user{% endif %}">
+          <td>{% if student.rank == 1 %}🥇{% elif student.rank == 2 %}🥈{% elif student.rank == 3 %}🥉{% else %}{{ student.rank }}{% endif %}</td>
+          <td style="font-weight:700;">{{ student.name }}</td>
+          <td>{{ student.lessons_completed }}</td>
+          <td>{{ student.courses_completed }}</td>
+          <td>{{ "%.0f"|format(student.best_quiz_score) }}%</td>
+          <td style="color:var(--accent);font-weight:800;">{{ student.total_score }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

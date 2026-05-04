@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  .admin-header {
+    padding: 40px 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .admin-title { font-size: 2rem; font-weight: 800; margin-bottom: 6px; }
+  .admin-subtitle { color: var(--text-secondary); font-size: 14px; }
+  .admin-grid { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 32px 0 60px; }
+  .admin-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); backdrop-filter: blur(18px); }
+  .admin-section-head { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .admin-section-title { font-family: var(--font-head); font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .admin-table { width: 100%; border-collapse: collapse; }
+  .admin-table th { padding: 10px 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); text-align: left; border-bottom: 1px solid var(--border); }
+  .admin-table td { padding: 12px 20px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .admin-table tr:last-child td { border-bottom: none; }
+  .admin-table tr:hover td { background: var(--bg-card2); }
+  .badge-role-admin { background: rgba(0, 180, 216, 0.1); color: var(--accent); border: 1px solid rgba(0, 180, 216, 0.25); }
+  .badge-role-student { background: rgba(16, 185, 129, 0.08); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+  .stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px 0; }
+  /* Modal */
+  .modal-backdrop { position:fixed;inset:0;background:rgba(248,250,252,0.86);backdrop-filter:none;z-index:10000;display:none;align-items:center;justify-content:center; }
+  .modal-backdrop.open { display:flex; }
+  .modal { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px;width:100%;max-width:440px;box-shadow:var(--shadow-strong),var(--shadow-glow);animation:scaleIn 0.3s ease;backdrop-filter:blur(20px); }
+  .modal h2 { font-size:1.2rem;font-weight:800;margin-bottom:24px;display:flex;align-items:center;gap:8px; }
+  .modal-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px; }
+
+  [data-theme="light"] body {
+    background: #f8fafc !important;
+  }
+
+  [data-theme="light"] .admin-header {
+    background: #ffffff;
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .admin-section,
+  [data-theme="light"] .admin-section-head,
+  [data-theme="light"] .stat-card,
+  [data-theme="light"] .glass-panel,
+  [data-theme="light"] .modal {
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  [data-theme="light"] .admin-section,
+  [data-theme="light"] .stat-card,
+  [data-theme="light"] .modal {
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .admin-table tr:hover td {
+    background: #f8fafc;
+  }
+
+  [data-theme="light"] .modal-backdrop {
+    background: rgba(248, 250, 252, 0.86);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  [data-theme="dark"] .admin-header {
+    background: radial-gradient(circle at 18% 0%, rgba(34,211,238,0.13), transparent 30%), linear-gradient(180deg, rgba(15,23,42,0.5) 0%, transparent 100%);
+  }
+
+  [data-theme="dark"] .modal-backdrop {
+    background: rgba(2,6,23,0.68);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  [data-theme="dark"] .admin-section,
+  [data-theme="dark"] .stat-card,
+  [data-theme="dark"] .glass-panel,
+  [data-theme="dark"] .modal {
+    background: var(--bg-card);
+  }
+  @media(max-width:1000px) { .admin-grid { grid-template-columns: 1fr; } }
+  @media(max-width:600px) { .stat-strip { grid-template-columns: 1fr 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+  <div class="container">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div class="section-label">Administration</div>
+        <h1 class="admin-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="settings"
+            style="width:28px;height:28px;color:var(--text-muted);"></i> Admin Panel</h1>
+        <p class="admin-subtitle">Manage courses, lessons, and users.</p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="document.getElementById('create-user-modal').classList.add('open')"><i data-lucide="user-plus" style="width:16px;height:16px;"></i> Create User</button>
+        <a href="{{ url_for('admin_ai_generate') }}" class="btn btn-secondary"><i data-lucide="sparkles" style="width:16px;height:16px;"></i> Generate with AI</a>
+        <a href="{{ url_for('admin_new_course') }}" class="btn btn-primary"><i data-lucide="plus" style="width:16px;height:16px;"></i> New Course</a>
+      </div>
+    </div>
+
+    <div class="stat-strip stagger-children">
+      <div class="stat-card glass-panel">
+        <div class="stat-icon cyan"><i data-lucide="book-open"></i></div>
+        <div><div class="stat-num">{{ total_courses }}</div><div class="stat-label">Total Courses</div></div>
+      </div>
+      <div class="stat-card glass-panel">
+        <div class="stat-icon green"><i data-lucide="users"></i></div>
+        <div><div class="stat-num">{{ total_users }}</div><div class="stat-label">Total Users</div></div>
+      </div>
+      <div class="stat-card glass-panel">
+        <div class="stat-icon purple"><i data-lucide="shield-check"></i></div>
+        <div><div class="stat-num">{{ session.name }}</div><div class="stat-label">Logged in as Admin</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="admin-grid">
+    <!-- Courses Management -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <div class="admin-section-title"><i data-lucide="book-open" style="width:16px;height:16px;"></i> All Courses</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="{{ url_for('admin_ai_generate') }}" class="btn btn-secondary btn-sm"><i data-lucide="sparkles" style="width:14px;height:14px;"></i> Generate with AI</a>
+          <a href="{{ url_for('admin_new_course') }}" class="btn btn-primary btn-sm"><i data-lucide="plus" style="width:14px;height:14px;"></i> Add Course</a>
+        </div>
+      </div>
+      {% if courses %}
+      <table class="admin-table">
+        <thead><tr><th>Course</th><th>Level</th><th>Category</th><th>Lessons</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for c in courses %}
+          <tr>
+            <td style="font-weight:600;">{{ c.emoji }} {{ c.title }}</td>
+            <td><span class="badge badge-{% if c.level=='beginner' %}cyan{% elif c.level=='intermediate' %}purple{% else %}yellow{% endif %}" style="text-transform:capitalize;">{{ c.level }}</span></td>
+            <td style="color:var(--text-secondary);">{{ c.category }}</td>
+            <td style="color:var(--text-secondary);">{{ c.lessons_count }}</td>
+            <td>
+              <div style="display:flex;gap:8px;">
+                <a href="{{ url_for('lesson', course_id=c.id) }}" class="btn btn-ghost btn-sm" title="View"><i data-lucide="eye" style="width:14px;height:14px;"></i></a>
+                <a href="{{ url_for('admin_edit_course', course_id=c.id) }}" class="btn btn-secondary btn-sm" title="Edit"><i data-lucide="edit-3" style="width:14px;height:14px;"></i></a>
+                <form method="POST" action="{{ url_for('admin_delete_course', course_id=c.id) }}" onsubmit="return confirm('Delete this course?')" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding:40px;">
+        <div class="empty-state-icon"><i data-lucide="book-open"></i></div>
+        <div class="empty-state-title">No courses yet</div>
+        <div class="empty-state-text">Click "Add Course" to create your first course.</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Users -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <div class="admin-section-title"><i data-lucide="users" style="width:16px;height:16px;"></i> All Users</div>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('create-user-modal').classList.add('open')"><i data-lucide="user-plus" style="width:14px;height:14px;"></i> Create User</button>
+      </div>
+      <table class="admin-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for u in all_users %}
+          <tr>
+            <td style="font-weight:600;">{{ u.name }}</td>
+            <td style="color:var(--text-secondary);">{{ u.email }}</td>
+            <td><span class="badge badge-role-{{ u.role }}">{{ u.role }}</span></td>
+            <td>
+              {% if u.id != session.user_id %}
+              <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}" onsubmit="return confirm('Delete user {{ u.name }}?')" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete User"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+              </form>
+              {% else %}
+              <span style="font-size:12px;color:var(--text-muted);">You</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal-backdrop" id="create-user-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <h2><i data-lucide="user-plus" style="width:22px;height:22px;color:var(--accent);"></i> Create New User</h2>
+    <form method="POST" action="{{ url_for('admin_create_user') }}">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input type="text" name="name" placeholder="John Doe" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" name="email" placeholder="john@example.com" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password *</label>
+        <input type="password" name="password" placeholder="Create a password" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select name="role">
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('create-user-modal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i data-lucide="user-plus" style="width:14px;height:14px;"></i> Create User</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

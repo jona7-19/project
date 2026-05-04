@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Notes — E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  .notes-layout { display:grid;grid-template-columns:380px 1fr;gap:28px;padding:32px 0 60px;align-items:start; }
+  .new-note-panel { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;position:sticky;top:88px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .new-note-panel h2 { font-size:1rem;font-weight:700;margin-bottom:20px; }
+  #note-content { resize:vertical;min-height:140px;font-size:14px;line-height:1.7; }
+  .notes-count { font-size:13px;color:var(--text-muted);margin-bottom:18px; }
+  .notes-grid { display:grid;grid-template-columns:repeat(2,1fr);gap:16px; }
+  .note-color-bar { height:3px;border-radius:3px;margin-bottom:14px; }
+  .search-notes { position:relative;margin-bottom:20px; }
+  .search-notes svg { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);width:15px;height:15px;pointer-events:none; }
+  .search-notes input { padding-left:36px; }
+  .color-pick { width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all 0.2s; }
+  .color-pick.active { border-color:#f8fcff; box-shadow: 0 0 0 3px rgba(34,211,238,0.18); }
+  @media(max-width:900px){.notes-layout{grid-template-columns:1fr;}.new-note-panel{position:static;}}
+  @media(max-width:600px){.notes-grid{grid-template-columns:1fr;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+  <div class="container">
+    <div class="section-label">My Notes</div>
+    <h1 class="page-hero-title">Personal Notebook</h1>
+    <p class="page-hero-subtitle">Capture your thoughts, key concepts, and anything worth remembering.</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="notes-layout">
+    <!-- Add note panel -->
+    <div class="new-note-panel">
+      <h2 style="display:flex;align-items:center;gap:8px;"><i data-lucide="edit-3" style="width:18px;height:18px;color:var(--accent);"></i> New Note</h2>
+      <form method="POST" action="{{ url_for('notes') }}" id="note-form">
+        <input type="hidden" name="action" value="add"/>
+        <input type="hidden" name="color" id="selected-color" value="cyan"/>
+        <div class="form-group">
+          <label class="form-label" for="note-title">Title</label>
+          <input type="text" id="note-title" name="title" placeholder="Note title…" maxlength="80"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="note-content">Content</label>
+          <textarea id="note-content" name="content" placeholder="Write your note here…" maxlength="2000"></textarea>
+          <div class="form-hint"><span id="char-count">0</span> / 2000 characters</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color Tag</label>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="color-pick active" data-color="cyan"   style="background:var(--accent);"   title="Cyan"></button>
+            <button type="button" class="color-pick"        data-color="purple" style="background:var(--accent2);"  title="Purple"></button>
+            <button type="button" class="color-pick"        data-color="green"  style="background:var(--success);"  title="Green"></button>
+            <button type="button" class="color-pick"        data-color="yellow" style="background:var(--warning);"  title="Yellow"></button>
+            <button type="button" class="color-pick"        data-color="red"    style="background:var(--danger);"   title="Red"></button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full"><i data-lucide="save" style="width:16px;height:16px;margin-right:6px;"></i> Save Note</button>
+      </form>
+    </div>
+
+    <!-- Notes list -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:4px;">
+        <div class="notes-count"><span id="notes-count">{{ notes|length }}</span> notes saved</div>
+      </div>
+      <div class="search-notes">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-notes" placeholder="Search notes…" value="{{ search }}"/>
+      </div>
+
+      <div class="notes-grid" id="notes-grid">
+        {% if notes %}
+          {% for note in notes %}
+          {% set color_css = {'cyan': 'var(--accent)', 'purple': 'var(--accent2)', 'green': 'var(--success)', 'yellow': 'var(--warning)', 'red': 'var(--danger)'}[note.color] or 'var(--accent)' %}
+          <div class="note-card" data-title="{{ note.title|lower }}" data-content="{{ note.content|lower }}">
+            <div class="note-color-bar" style="background:{{ color_css }};"></div>
+            <div class="note-card-title">{{ note.title or 'Untitled Note' }}</div>
+            <div class="note-card-content">{{ note.content }}</div>
+            <div class="note-card-date"><i data-lucide="clock" style="width:12px;height:12px;vertical-align:-2px;margin-right:4px;"></i> {{ note.date[:10] if note.date else '' }}</div>
+            <div class="note-actions">
+              <form method="POST" action="{{ url_for('notes') }}" style="display:inline;" onsubmit="return confirm('Delete this note?')">
+                <input type="hidden" name="action" value="delete"/>
+                <input type="hidden" name="note_id" value="{{ note.id }}"/>
+                <button type="submit" class="note-action-btn" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="empty-state-icon"><i data-lucide="file-edit" style="width:40px;height:40px;color:var(--text-muted);"></i></div>
+            <div class="empty-state-title">No notes yet</div>
+            <div class="empty-state-text">Create your first note using the panel on the left.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Color picker
+  document.querySelectorAll('.color-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.color-pick').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('selected-color').value = btn.dataset.color;
+    });
+  });
+  // Char count
+  const ta = document.getElementById('note-content');
+  if (ta) ta.addEventListener('input', () => document.getElementById('char-count').textContent = ta.value.length);
+  // Client-side search filter
+  document.getElementById('search-notes').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('.note-card').forEach(card => {
+      const match = card.dataset.title.includes(q) || card.dataset.content.includes(q);
+      card.style.display = match ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Quiz — E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  .quiz-container { max-width:760px;margin:0 auto;padding:40px 0 80px; }
+  .quiz-header { text-align:center;margin-bottom:40px; }
+  .quiz-progress-row { display:flex;align-items:center;gap:14px;margin-bottom:8px; }
+  .q-counter { font-size:13px;color:var(--text-muted);white-space:nowrap; }
+  .quiz-card { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .question-num { font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px; }
+  .question-text { font-family:var(--font-head);font-size:1.2rem;font-weight:700;line-height:1.4;margin-bottom:28px;color:var(--text-primary); }
+  .options-list { display:flex;flex-direction:column;gap:10px; }
+  .option-btn { display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg-card2);border:1.5px solid var(--border);border-radius:var(--radius-md);cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all var(--transition);text-align:left;width:100%; }
+  .option-btn:hover:not(:disabled) { border-color:var(--accent);color:var(--text-primary);transform:translateY(-2px);box-shadow:0 10px 24px rgba(34,211,238,0.08); }
+  .option-btn.correct { border-color:var(--success);background:rgba(34,211,160,0.1);color:var(--success); }
+  .option-btn.wrong { border-color:var(--danger);background:rgba(244,63,94,0.1);color:var(--danger); }
+  .option-letter { width:28px;height:28px;border-radius:50%;background:var(--bg-input);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0; }
+  .quiz-hint { font-size:12px;color:var(--text-muted);margin-top:8px;padding:0 4px;min-height:18px; }
+  .quiz-footer { display:flex;align-items:center;justify-content:space-between;margin-top:24px;flex-wrap:wrap;gap:12px; }
+  .result-screen { text-align:center;padding:20px 0; }
+  .result-icon { font-size:64px;margin-bottom:16px; }
+  .result-score { font-family:var(--font-head);font-size:4rem;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:8px; }
+  .result-label { font-size:1.1rem;color:var(--text-secondary);margin-bottom:24px; }
+  .result-breakdown { display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0; }
+  .breakdown-item { background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center; }
+  .breakdown-num { font-family:var(--font-head);font-size:1.5rem;font-weight:800;margin-bottom:4px; }
+  .breakdown-label { font-size:12px;color:var(--text-muted); }
+  .result-actions { display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px; }
+  .certificate-banner { display:none;margin:0 0 22px;padding:18px;border:1px solid rgba(34,211,238,0.35);border-radius:var(--radius-md);background:linear-gradient(135deg,rgba(34,211,238,0.14),rgba(124,107,255,0.12));color:var(--text-primary); }
+  .certificate-banner strong { display:block;font-family:var(--font-head);font-size:1.15rem;margin-bottom:4px;color:var(--accent); }
+  .loading-spinner { text-align:center;padding:60px 20px;color:var(--text-secondary); }
+  .spinner { width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="quiz-container">
+    <div class="quiz-header">
+      <div class="section-label">Knowledge Check</div>
+      <h1 class="section-title" style="display:flex;align-items:center;justify-content:center;gap:12px;"><i data-lucide="{{ course.emoji }}" style="width:36px;height:36px;color:var(--accent);"></i> {{ course.title }} Quiz</h1>
+      <p class="section-subtitle" style="margin:0 auto;text-align:center;">AI-generated questions · Multiple choice</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="quiz-loading" class="quiz-card">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Generating quiz questions with AI…</p>
+      </div>
+    </div>
+
+    <!-- Quiz in progress -->
+    <div id="quiz-in-progress" style="display:none;">
+      <div class="quiz-progress-row">
+        <div class="progress-bar-wrap" style="flex:1;"><div class="progress-bar-fill" id="quiz-progress-bar" style="width:0%"></div></div>
+        <span class="q-counter" id="q-counter">1 / 5</span>
+      </div>
+      <div class="quiz-card">
+        <div class="question-num" id="question-num">Question 1</div>
+        <div class="question-text" id="question-text"></div>
+        <div class="options-list" id="options-list"></div>
+        <div class="quiz-hint" id="quiz-hint"></div>
+        <div class="quiz-footer">
+          <div style="font-size:13px;color:var(--text-muted);">Score: <strong id="live-score" style="color:var(--accent);">0</strong></div>
+          <button class="btn btn-primary" id="next-btn" disabled>Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result screen -->
+    <div id="quiz-result" style="display:none;">
+      <div class="quiz-card">
+        <div class="result-screen">
+          <div class="certificate-banner" id="certificate-banner">
+            <strong>🎓 Certificate Earned!</strong>
+            <span>You completed every lesson and passed the quiz.</span>
+          </div>
+          <div class="result-icon" id="result-icon" style="display:flex;align-items:center;justify-content:center;"></div>
+          <div class="result-score" id="result-pct">0%</div>
+          <div class="result-label" id="result-label">Loading…</div>
+          <div class="result-breakdown">
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-correct" style="color:var(--success);">0</div><div class="breakdown-label">Correct</div></div>
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-wrong" style="color:var(--danger);">0</div><div class="breakdown-label">Wrong</div></div>
+            <div class="breakdown-item"><div class="breakdown-num" id="bd-total" style="color:var(--accent);">0</div><div class="breakdown-label">Total</div></div>
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-secondary" onclick="retakeQuiz()"><i data-lucide="refresh-cw" style="width:14px;height:14px;margin-right:6px;"></i> Retake Quiz</button>
+            <a href="{{ url_for('certificate', course_id=course.id) }}" class="btn btn-primary" id="download-certificate" style="display:none;text-decoration:none;"><i data-lucide="award" style="width:14px;height:14px;margin-right:6px;"></i> Download Certificate</a>
+            <a href="{{ url_for('lesson', course_id=course.id) }}" onclick="safeBackNavigation('{{ url_for('lesson', course_id=course.id) }}'); return false;" class="btn btn-ghost" style="text-decoration:none;">← Back to Lesson</a>
+            <a href="{{ url_for('courses') }}" class="btn btn-primary" style="text-decoration:none;">Browse Courses →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<script>
+const COURSE_ID = '{{ course.id }}';
+let questions = [], currentQ = 0, score = 0;
+
+async function extractPdfText(courseId) {
+  try {
+    const pdfUrl = `/static/pdfs/${courseId}.pdf`;
+    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+    let text = '';
+    const maxPages = Math.min(pdf.numPages, 5); 
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      text += strings.join(' ') + ' ';
+    }
+    return text.substring(0, 3000); 
+  } catch (err) {
+    console.warn("Could not extract PDF text:", err);
+    return "";
+  }
+}
+
+async function loadQuiz() {
+  const loadingText = document.querySelector('.loading-spinner p');
+  if (loadingText) loadingText.textContent = 'Extracting PDF Data & Generating Quiz...';
+  
+  let pdfText = await extractPdfText(COURSE_ID);
+  
+  try {
+    const apiKey = localStorage.getItem('ai_api_key') || '';
+    const res = await fetch('/api/quiz/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: COURSE_ID, pdf_text: pdfText, api_key: apiKey })
+    });
+    const data = await res.json();
+    questions = data.questions || [];
+    if (!questions.length) throw new Error('No questions');
+  } catch(e) {
+    questions = [
+      { question: 'What is the primary benefit of this course?', options: ['Learning new skills', 'Nothing', 'Entertainment only', 'Wasting time'], correct: 0 },
+      { question: 'What does debugging mean?', options: ['Adding bugs', 'Finding and fixing errors', 'Writing new code', 'Deleting files'], correct: 1 },
+      { question: 'What is a loop used for?', options: ['Styling text', 'Repeating actions', 'Storing passwords', 'Connecting internet'], correct: 1 },
+      { question: 'What does a function do?', options: ['Deletes data', 'A reusable block of code', 'Opens files', 'Sends emails'], correct: 1 },
+      { question: 'Which is a common programming concept?', options: ['Variables', 'Ingredients', 'Blueprints', 'Maps only'], correct: 0 },
+    ];
+  }
+  document.getElementById('quiz-loading').style.display = 'none';
+  document.getElementById('quiz-in-progress').style.display = 'block';
+  showQuestion();
+}
+
+function showQuestion() {
+  const q = questions[currentQ];
+  const letters = ['A','B','C','D'];
+  document.getElementById('question-num').textContent = `Question ${currentQ + 1}`;
+  document.getElementById('question-text').textContent = q.question;
+  document.getElementById('q-counter').textContent = `${currentQ + 1} / ${questions.length}`;
+  document.getElementById('quiz-progress-bar').style.width = `${(currentQ / questions.length) * 100}%`;
+  document.getElementById('next-btn').disabled = true;
+  document.getElementById('quiz-hint').textContent = '';
+  document.getElementById('options-list').innerHTML = q.options.map((opt, i) => `
+    <button class="option-btn" onclick="selectAnswer(${i})" id="opt${i}">
+      <span class="option-letter">${letters[i]}</span>${opt}
+    </button>`).join('');
+}
+
+function selectAnswer(idx) {
+  const q = questions[currentQ];
+  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+  if (idx === q.correct) {
+    document.getElementById(`opt${idx}`).classList.add('correct');
+    score++;
+    document.getElementById('live-score').textContent = score;
+    document.getElementById('quiz-hint').innerHTML = '<i data-lucide="check-circle-2" style="width:14px;height:14px;color:var(--success);vertical-align:-2px;margin-right:4px;"></i> Correct!';
+  } else {
+    document.getElementById(`opt${idx}`).classList.add('wrong');
+    document.getElementById(`opt${q.correct}`).classList.add('correct');
+    document.getElementById('quiz-hint').innerHTML = '<i data-lucide="x-circle" style="width:14px;height:14px;color:var(--danger);vertical-align:-2px;margin-right:4px;"></i> Incorrect — see the correct answer above.';
+  }
+  lucide.createIcons();
+  document.getElementById('next-btn').disabled = false;
+}
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  currentQ++;
+  if (currentQ >= questions.length) showResults();
+  else showQuestion();
+});
+
+async function saveQuizResult(pct) {
+  try {
+    const res = await fetch('/api/quiz/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: COURSE_ID, score, total: questions.length, percentage: pct })
+    });
+    const data = await res.json();
+    if (data.saved && data.certificate_earned) {
+      document.getElementById('certificate-banner').style.display = 'block';
+      document.getElementById('download-certificate').style.display = 'inline-flex';
+      lucide.createIcons();
+    }
+  } catch (err) {
+    console.warn('Could not save quiz result:', err);
+  }
+}
+
+function showResults() {
+  document.getElementById('quiz-in-progress').style.display = 'none';
+  document.getElementById('quiz-result').style.display = 'block';
+  const pct = Math.round((score / questions.length) * 100);
+  document.getElementById('certificate-banner').style.display = 'none';
+  document.getElementById('download-certificate').style.display = 'none';
+  document.getElementById('result-icon').innerHTML  = pct >= 80 ? '<i data-lucide="party-popper" style="width:64px;height:64px;color:var(--accent);"></i>' : pct >= 60 ? '<i data-lucide="thumbs-up" style="width:64px;height:64px;color:var(--accent2);"></i>' : '<i data-lucide="book-open" style="width:64px;height:64px;color:var(--text-muted);"></i>';
+  document.getElementById('result-pct').textContent   = pct + '%';
+  document.getElementById('result-label').textContent = pct >= 80 ? 'Excellent work!' : pct >= 60 ? 'Good job! Keep practicing.' : "Keep studying, you'll get there!";
+  document.getElementById('bd-correct').textContent   = score;
+  document.getElementById('bd-wrong').textContent     = questions.length - score;
+  document.getElementById('bd-total').textContent     = questions.length;
+  document.getElementById('quiz-progress-bar').style.width = '100%';
+  lucide.createIcons();
+  saveQuizResult(pct);
+}
+
+function retakeQuiz() {
+  currentQ = 0; score = 0;
+  document.getElementById('live-score').textContent = '0';
+  document.getElementById('quiz-result').style.display = 'none';
+  document.getElementById('quiz-in-progress').style.display = 'block';
+  showQuestion();
+}
+
+loadQuiz();
+</script>
+{% endblock %}

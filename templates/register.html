@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Register — E-Learn Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+  body { align-items:center;justify-content:center; }
+  .login-wrap { display:flex;min-height:100vh;width:100%; }
+  .login-left { flex:1;display:flex;align-items:center;justify-content:center;padding:48px;position:relative;background:transparent; }
+  .login-card { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px 44px;width:100%;max-width:420px;box-shadow:var(--shadow-strong),var(--shadow-glow);position:relative;z-index:1;backdrop-filter:blur(20px) saturate(135%); }
+  .login-logo { font-family:var(--font-head);font-size:1.4rem;font-weight:800;color:var(--text-primary);margin-bottom:32px;display:flex;align-items:center;gap:8px; }
+  .login-logo span { color:var(--accent); }
+  .login-logo .logo-dot { width:8px;height:8px;background:var(--accent);border-radius:50%;box-shadow:0 0 10px var(--accent); }
+  .login-title { font-size:1.6rem;font-weight:800;margin-bottom:6px;color:var(--text-primary); }
+  .login-subtitle { font-size:14px;color:var(--text-secondary);margin-bottom:32px; }
+  .error-msg { display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--danger);margin-bottom:16px; }
+  .error-msg.visible { display:block; }
+  .input-wrapper { position:relative; }
+  .input-wrapper svg.icon-main { position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);width:16px;height:16px;pointer-events:none; }
+  .input-wrapper input { padding-left:40px; }
+  .toggle-pass { position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;cursor:pointer;padding:0;color:var(--text-muted); display:flex;align-items:center;justify-content:center; }
+  .divider-or { display:flex;align-items:center;gap:12px;color:var(--text-muted);font-size:12px;margin:24px 0; }
+  .divider-or::before,.divider-or::after { content:'';flex:1;height:1px;background:var(--border); }
+  .back-link { display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--text-secondary);margin-top:24px;transition:color var(--transition);text-decoration:none; }
+  .back-link:hover { color:var(--accent); }
+  .login-right { flex:1.2;background:linear-gradient(135deg, rgba(34,211,238,0.1), rgba(37,99,235,0.08));border-left:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;position:relative;overflow:hidden; }
+  .login-right::before { content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(34,211,238,0.16) 0%,transparent 60%); }
+  .promo-content { position:relative;z-index:1;text-align:center;max-width:460px; }
+  .promo-title { font-size:2rem;font-weight:800;margin-bottom:16px;line-height:1.2;color:var(--text-primary); }
+  .promo-title .grad { background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; }
+  .promo-desc { color:var(--text-secondary);margin-bottom:40px;line-height:1.7; }
+  .promo-features { display:flex;flex-direction:column;gap:14px;text-align:left; }
+  .promo-feature { display:flex;align-items:center;gap:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 18px;box-shadow:var(--shadow-card);backdrop-filter:blur(18px); }
+  .promo-feature-icon { font-size:22px;color:var(--accent);display:flex;align-items:center;justify-content:center; }
+  .promo-feature-text { font-size:13px;color:var(--text-secondary); }
+  .promo-feature-title { font-weight:600;color:var(--text-primary);font-size:14px;margin-bottom:2px; }
+  @media(max-width:900px){.login-right{display:none;}.login-left{padding:24px;}}
+</style>
+{% endblock %}
+
+{% block navbar %}{% endblock %}
+{% block body %}
+<div class="page-transition-overlay" id="page-transition"></div>
+<div class="login-wrap">
+  <div class="login-left">
+    <div class="login-card scale-in" style="animation-fill-mode: both;">
+      <div class="login-logo"><span class="logo-dot"></span>E-Learn<span>Pro</span></div>
+      <h1 class="login-title">Create an Account</h1>
+      <p class="login-subtitle">Join us to start your learning journey</p>
+
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in msgs %}
+          <div class="error-msg visible" {% if cat == 'success' %}style="color:var(--success);background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.25);"{% endif %}>{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('register') }}" id="register-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="register-name">Full Name</label>
+          <div class="input-wrapper">
+            <i data-lucide="user" class="icon-main"></i>
+            <input type="text" id="register-name" name="name" placeholder="John Doe" autocomplete="name"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="register-email">Email Address</label>
+          <div class="input-wrapper">
+            <i data-lucide="mail" class="icon-main"></i>
+            <input type="email" id="register-email" name="email" placeholder="john@example.com" autocomplete="email"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="register-password">Password</label>
+          <div class="input-wrapper">
+            <i data-lucide="lock" class="icon-main"></i>
+            <input type="password" id="register-password" name="password" placeholder="Create a password" autocomplete="new-password"/>
+            <button type="button" class="toggle-pass" id="toggle-password"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="register-submit" style="font-size:15px;padding:13px;">Create Account</button>
+      </form>
+
+      <div class="divider-or">Already have an account?</div>
+      <a href="{{ url_for('login') }}" class="btn btn-secondary btn-full" style="text-decoration:none;font-size:15px;padding:13px;text-align:center;">Sign In instead</a>
+
+      <div style="text-align:center;margin-top:24px;">
+        <a href="{{ url_for('landing') }}" class="back-link"><i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Back to home</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-right page-enter" style="animation-fill-mode: both; animation-delay: 0.2s;">
+    <div class="promo-content">
+      <h2 class="promo-title">Learn smarter with<br/><span class="grad">AI-powered tools</span></h2>
+      <p class="promo-desc">Access structured courses, get instant AI help during lessons, and track your progress all in one place.</p>
+      <div class="promo-features stagger-children">
+        <div class="promo-feature"><span class="promo-feature-icon"><i data-lucide="bot"></i></span><div><div class="promo-feature-title">AI Lesson Chatbot</div><div class="promo-feature-text">Ask questions about any lesson — backed by our server</div></div></div>
+        <div class="promo-feature"><span class="promo-feature-icon"><i data-lucide="trending-up"></i></span><div><div class="promo-feature-title">Progress Tracking</div><div class="promo-feature-text">Monitor your learning streak and quiz performance</div></div></div>
+        <div class="promo-feature"><span class="promo-feature-icon"><i data-lucide="file-text"></i></span><div><div class="promo-feature-title">Personal Notes</div><div class="promo-feature-text">Capture and organize your thoughts as you study</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const toggle = document.getElementById('toggle-password');
+  const passIn = document.getElementById('register-password');
+  if (toggle && passIn) {
+    toggle.addEventListener('click', () => {
+      passIn.type = passIn.type === 'password' ? 'text' : 'password';
+      toggle.innerHTML = passIn.type === 'password' ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
+      lucide.createIcons();
+    });
+  }
+</script>
+{% endblock %}

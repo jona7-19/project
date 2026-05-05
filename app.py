@@ -17,7 +17,7 @@ EXAM_CACHE = {}
 
 DATABASE = os.path.join(os.path.dirname(__file__), "elearn.db")
 
-GEMINI_API_KEY = "AIzaSyCQXW0Ncj821t7qlsgb_5gMrq2fBUBezIY"
+GEMINI_API_KEY = "AIzaSyDxEkl4iuoqg8HlfeJL_0B25-rhOJY_EIU"
 
 # ─────────────────────────────────────────────
 #  COURSES & LESSONS DATA
@@ -347,24 +347,103 @@ def get_course_with_lessons(course_id):
     }
 
 def fallback_exam_questions(topic, lesson_text):
-    base = [
-        ("What is the main purpose of studying this course?", ["To build practical knowledge", "To avoid practice", "To memorize random facts", "To skip examples"], 0),
-        ("Which learning habit is most useful for this course?", ["Practicing with examples", "Ignoring feedback", "Reading titles only", "Avoiding review"], 0),
-        ("What should a student do after learning a new concept?", ["Apply it in a small exercise", "Forget the definition", "Close the lesson", "Skip the summary"], 0),
-        ("Why are key concepts important?", ["They help connect theory to practice", "They remove the need to learn", "They replace exercises", "They are only decorative"], 0),
+    import re
+
+    source = lesson_text or f"{topic} is a practical course with important concepts, examples, exercises, and real applications."
+    sentences = [
+        s.strip()
+        for s in re.split(r"(?<=[.!?])\s+", source)
+        if len(s.strip()) > 45
+    ]
+    if not sentences:
+        sentences = [
+            f"{topic} helps students build practical knowledge through lessons and exercises.",
+            f"Studying {topic} requires reviewing concepts, applying examples, and practicing regularly.",
+            f"A good learner connects definitions, examples, and small projects to understand {topic}.",
+            f"Evaluation in {topic} checks whether the student can apply the main ideas correctly.",
+        ]
+
+    templates = [
+        ("According to the course material, what is an important idea about {topic}?", None),
+        ("Which statement best matches this lesson extract: \"{sentence}\"?", None),
+        ("What should a student do after learning a new concept in {topic}?", "Apply it in a small exercise"),
+        ("Why is regular practice important in {topic}?", "It helps transform theory into usable skill"),
+        ("What is the best way to review a lesson about {topic}?", "Read the key ideas and test them with examples"),
+        ("What does a final exam in {topic} mainly evaluate?", "Understanding and practical application"),
+        ("Which behavior supports successful online learning?", "Taking notes and completing activities"),
+        ("What does course progress usually represent?", "The lessons completed or visited by the learner"),
+        ("Why are quizzes useful in an e-learning course?", "They help check understanding quickly"),
+        ("What is the purpose of a certificate?", "To confirm successful course completion"),
+        ("Which action helps a learner remember {topic} concepts for longer?", "Reviewing and practicing the concepts"),
+        ("What should the learner do when an answer is wrong in {topic}?", "Review the related lesson and try again"),
+        ("Which habit improves preparation before the final exam?", "Studying the lessons in order"),
+        ("Why should examples be used while studying {topic}?", "They connect definitions to real use cases"),
+        ("What does a dashboard help the learner understand?", "Progress, scores, and learning status"),
+        ("Which choice describes an effective study note?", "A short summary of the key lesson ideas"),
+        ("What is the role of lesson content in an e-learning course?", "It explains the concepts the student must learn"),
+        ("When should a learner take the final exam?", "After completing and reviewing the lessons"),
+        ("What makes feedback useful after a quiz?", "It shows what needs more revision"),
+        ("Which result shows that the learner completed the course successfully?", "Passing the assessment and earning a certificate"),
+    ]
+    distractors = [
+        "Ignore the examples",
+        "Skip all practice",
+        "Memorize random words only",
+        "Avoid reviewing the lesson",
+        "Close the course immediately",
+        "Choose answers without reading",
+        "Delete previous notes",
+        "Focus only on the page title",
+        "Stop after the first paragraph",
+        "Use unrelated information",
     ]
     questions = []
     for i in range(20):
-        template = base[i % len(base)]
+        sentence = sentences[i % len(sentences)]
+        template, fixed_answer = templates[i % len(templates)]
+        if fixed_answer:
+            correct_answer = fixed_answer
+        else:
+            words = [
+                w.strip(".,;:!?()[]{}\"'")
+                for w in sentence.split()
+                if len(w.strip(".,;:!?()[]{}\"'")) > 5 and w.strip(".,;:!?()[]{}\"'").isalpha()
+            ]
+            keyword = words[i % len(words)] if words else topic
+            correct_answer = f"It highlights the importance of {keyword} in the lesson"
+        options = [correct_answer]
+        for distractor in distractors:
+            if distractor not in options:
+                options.append(distractor)
+            if len(options) == 4:
+                break
+        target_correct_index = i % 4
+        options.remove(correct_answer)
+        options.insert(target_correct_index, correct_answer)
         questions.append({
-            "question": f"{template[0]} ({topic}, item {i + 1})",
-            "options": template[1],
-            "correct": template[2],
+            "question": template.format(topic=topic, sentence=sentence[:120]),
+            "options": options,
+            "correct": target_correct_index,
         })
     return questions
 
+def shuffle_question_options(question):
+    import random
+
+    options = [str(opt).strip() for opt in question["options"]]
+    correct_answer = options[question["correct"]]
+    paired = list(enumerate(options))
+    random.shuffle(paired)
+    shuffled = [option for _, option in paired]
+    return {
+        "question": question["question"],
+        "options": shuffled,
+        "correct": shuffled.index(correct_answer),
+    }
+
 def normalize_exam_questions(raw_questions, topic, lesson_text):
     questions = []
+    seen_questions = set()
     if isinstance(raw_questions, list):
         for item in raw_questions:
             if not isinstance(item, dict):
@@ -380,15 +459,27 @@ def normalize_exam_questions(raw_questions, topic, lesson_text):
                 continue
             if correct < 0 or correct > 3:
                 continue
-            questions.append({
+            normalized_key = " ".join(question.lower().split())
+            if normalized_key in seen_questions:
+                continue
+            seen_questions.add(normalized_key)
+            questions.append(shuffle_question_options({
                 "question": question,
                 "options": [str(opt).strip() for opt in options],
                 "correct": correct,
-            })
+            }))
             if len(questions) == 20:
                 break
     if len(questions) < 20:
-        questions = fallback_exam_questions(topic, lesson_text)
+        fallback = fallback_exam_questions(topic, lesson_text)
+        for item in fallback:
+            normalized_key = " ".join(item["question"].lower().split())
+            if normalized_key in seen_questions:
+                continue
+            seen_questions.add(normalized_key)
+            questions.append(item)
+            if len(questions) == 20:
+                break
     return questions[:20]
 
 def public_exam_questions(questions):
@@ -1283,10 +1374,12 @@ Each item must use this exact format:
   {{
     "question": "Question text",
     "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct": 0
+    "correct": 2
   }}
 ]
 "correct" must be the zero-based index of the correct option.
+Do not repeat questions.
+Distribute correct answers across A, B, C, and D. Do not make every correct answer option A.
 Make the questions practical, fair, and based on the lessons."""
     text = call_gemini(prompt, temperature=0.5, max_tokens=3500)
     raw_questions = None

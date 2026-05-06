@@ -186,67 +186,6 @@
     }, { threshold: 0.1 });
     document.querySelectorAll('.animate-on-scroll').forEach((el) => observer.observe(el));
 
-    // Lightweight neon cursor trail
-    (() => {
-      const finePointer = window.matchMedia('(pointer: fine)').matches;
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (!finePointer || reducedMotion) return;
-
-      const count = 10;
-      const dots = [];
-      const fragment = document.createDocumentFragment();
-      let mouseX = window.innerWidth / 2;
-      let mouseY = window.innerHeight / 2;
-      let active = false;
-      let idleTimer = null;
-
-      for (let i = 0; i < count; i++) {
-        const dot = document.createElement('span');
-        dot.className = 'cursor-trail-dot';
-        dot.style.width = `${18 - i * 0.72}px`;
-        dot.style.height = `${18 - i * 0.72}px`;
-        dot.style.setProperty('--trail-opacity', `${0.42 - i * 0.026}`);
-        fragment.appendChild(dot);
-        dots.push({ el: dot, x: mouseX, y: mouseY });
-      }
-      document.body.appendChild(fragment);
-
-      document.addEventListener('pointermove', (e) => {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-        if (!active) {
-          active = true;
-          dots.forEach(dot => dot.el.classList.add('is-visible'));
-        }
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-          active = false;
-          dots.forEach(dot => dot.el.classList.remove('is-visible'));
-        }, 1100);
-      }, { passive: true });
-
-      document.addEventListener('pointerleave', () => {
-        clearTimeout(idleTimer);
-        active = false;
-        dots.forEach(dot => dot.el.classList.remove('is-visible'));
-      });
-
-      function animateTrail() {
-        let x = mouseX;
-        let y = mouseY;
-        dots.forEach((dot, index) => {
-          const ease = 0.25 - index * 0.009;
-          dot.x += (x - dot.x) * ease;
-          dot.y += (y - dot.y) * ease;
-          dot.el.style.transform = `translate3d(${dot.x}px, ${dot.y}px, 0) translate(-50%, -50%) scale(${1 - index * 0.035})`;
-          x = dot.x;
-          y = dot.y;
-        });
-        requestAnimationFrame(animateTrail);
-      }
-      animateTrail();
-    })();
-
     // Page Transition System
     const ptOverlay = document.getElementById('page-transition');
     if (ptOverlay) {

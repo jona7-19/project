@@ -1314,35 +1314,6 @@ footer {
   box-shadow: var(--shadow-card);
 }
 
-/* Premium cursor trail */
-.cursor-trail-dot {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 99998;
-  opacity: 0;
-  transform: translate3d(-50%, -50%, 0) scale(0.55);
-  background:
-    radial-gradient(circle at 35% 35%, rgba(248,252,255,0.95), rgba(103,232,249,0.78) 18%, rgba(96,165,250,0.44) 46%, rgba(139,92,246,0) 74%);
-  box-shadow: 0 0 22px rgba(34,211,238,0.46), 0 0 44px rgba(96,165,250,0.28);
-  filter: blur(0.45px);
-  mix-blend-mode: screen;
-  will-change: transform, opacity;
-  transition: opacity 420ms ease;
-}
-
-.cursor-trail-dot.is-visible {
-  opacity: var(--trail-opacity, 0.35);
-}
-
-@media (pointer: coarse), (prefers-reduced-motion: reduce) {
-  .cursor-trail-dot { display: none; }
-}
-
 .animate-on-scroll {
   opacity: 0;
   transform: translateY(30px);
@@ -1565,10 +1536,6 @@ footer {
 [data-theme="light"] .lesson-item:hover,
 [data-theme="light"] .admin-table tr:hover td {
   background: #f8fafc !important;
-}
-
-[data-theme="light"] .cursor-trail-dot {
-  mix-blend-mode: normal;
 }
 
 /* ============================================

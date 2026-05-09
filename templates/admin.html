@@ -136,7 +136,12 @@
         <tbody>
           {% for c in courses %}
           <tr>
-            <td style="font-weight:600;">{{ c.emoji }} {{ c.title }}</td>
+            <td style="font-weight:600;">
+              {{ c.emoji }} {{ c.title }}
+              {% if c.is_archived %}
+              <span class="badge" style="background:rgba(239, 68, 68, 0.1);color:var(--danger);border:1px solid rgba(239, 68, 68, 0.2);margin-left:8px;font-size:10px;">ARCHIVED</span>
+              {% endif %}
+            </td>
             <td><span class="badge badge-{% if c.level=='beginner' %}cyan{% elif c.level=='intermediate' %}purple{% else %}yellow{% endif %}" style="text-transform:capitalize;">{{ c.level }}</span></td>
             <td style="color:var(--text-secondary);">{{ c.category }}</td>
             <td style="color:var(--text-secondary);">{{ c.lessons_count }}</td>
@@ -144,8 +149,10 @@
               <div style="display:flex;gap:8px;">
                 <a href="{{ url_for('lesson', course_id=c.id) }}" class="btn btn-ghost btn-sm" title="View"><i data-lucide="eye" style="width:14px;height:14px;"></i></a>
                 <a href="{{ url_for('admin_edit_course', course_id=c.id) }}" class="btn btn-secondary btn-sm" title="Edit"><i data-lucide="edit-3" style="width:14px;height:14px;"></i></a>
-                <form method="POST" action="{{ url_for('admin_delete_course', course_id=c.id) }}" onsubmit="return confirm('Delete this course?')" style="display:inline;">
-                  <button type="submit" class="btn btn-danger btn-sm" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+                <form method="POST" action="{{ url_for('admin_delete_course', course_id=c.id) }}" onsubmit="return confirm('{% if c.is_archived %}Unarchive{% else %}Archive{% endif %} this course?')" style="display:inline;">
+                  <button type="submit" class="btn btn-{% if c.is_archived %}success{% else %}danger{% endif %} btn-sm" title="{% if c.is_archived %}Unarchive{% else %}Archive{% endif %}">
+                    <i data-lucide="{% if c.is_archived %}archive-restore{% else %}archive{% endif %}" style="width:14px;height:14px;"></i>
+                  </button>
                 </form>
               </div>
             </td>

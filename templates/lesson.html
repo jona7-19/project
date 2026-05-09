@@ -117,7 +117,7 @@
       <div class="sidebar-card">
         <div class="sidebar-card-head"><i data-lucide="zap" style="width:16px;height:16px;"></i> Actions</div>
         <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
-          <a href="{{ url_for('notes') }}" class="btn btn-secondary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="file-edit" style="width:14px;height:14px;margin-right:6px;"></i> Add Note</a>
+          <a href="{{ url_for('notes', course_id=course.id) }}" class="btn btn-secondary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="file-edit" style="width:14px;height:14px;margin-right:6px;"></i> Course Notes</a>
           <a href="{{ url_for('quiz', course_id=course.id) }}" class="btn btn-secondary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="brain" style="width:14px;height:14px;margin-right:6px;"></i> Take Quiz</a>
           <a href="{{ url_for('exam', course_id=course.id) }}" class="btn btn-primary btn-sm" style="text-decoration:none;justify-content:flex-start;"><i data-lucide="graduation-cap" style="width:14px;height:14px;margin-right:6px;"></i> Start Final Exam</a>
           {% if completion %}

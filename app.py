@@ -17,7 +17,7 @@ EXAM_CACHE = {}
 
 DATABASE = os.path.join(os.path.dirname(__file__), "elearn.db")
 
-GEMINI_API_KEY = "AIzaSyDxEkl4iuoqg8HlfeJL_0B25-rhOJY_EIU"
+GEMINI_API_KEY = "AIzaSyA6bIB06_QXBFNdRhJOo9ZKcxsZHv2Ogvo"
 
 # ─────────────────────────────────────────────
 #  COURSES & LESSONS DATA
@@ -84,6 +84,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS notes (
             id TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
+            course_id TEXT,
             title TEXT,
             content TEXT,
             color TEXT DEFAULT 'cyan',
@@ -99,7 +100,8 @@ def init_db():
             hours INTEGER DEFAULT 0,
             category TEXT DEFAULT 'general',
             created_by INTEGER,
-            created_at TEXT
+            created_at TEXT,
+            is_archived INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS lessons (
             id TEXT PRIMARY KEY,
@@ -153,6 +155,17 @@ def init_db():
             UNIQUE(user_id, course_id)
         );
     """)
+    
+    # ─────────────────────────────────────────────
+    # MIGRATIONS
+    # ─────────────────────────────────────────────
+    # Add is_archived column if it doesn't exist
+    try:
+        db.execute("SELECT is_archived FROM courses LIMIT 1")
+    except sqlite3.OperationalError:
+        db.execute("ALTER TABLE courses ADD COLUMN is_archived INTEGER DEFAULT 0")
+        db.commit()
+    
     # Seed demo users
     users = [
         ("student@elearn.com", "student123", "Alex Johnson",  "student"),
@@ -522,7 +535,7 @@ def index():
 @app.route("/landing")
 def landing():
     db = get_db()
-    featured = db.execute("SELECT * FROM courses ORDER BY created_at ASC LIMIT 3").fetchall()
+    featured = db.execute("SELECT * FROM courses WHERE is_archived=0 ORDER BY created_at ASC LIMIT 3").fetchall()
     return render_template("landing.html", courses=featured)
 
 @app.route("/login", methods=["GET", "POST"])
@@ -594,7 +607,7 @@ def dashboard():
     ensure_certificates_for_user(user_id)
     notes_count = db.execute("SELECT COUNT(*) FROM notes WHERE user_id=?", (user_id,)).fetchone()[0]
     stats = get_user_stats(user_id)
-    courses_rows = db.execute("SELECT * FROM courses ORDER BY created_at ASC").fetchall()
+    courses_rows = db.execute("SELECT * FROM courses WHERE is_archived=0 ORDER BY created_at ASC").fetchall()
     courses = []
     for c in courses_rows:
         lessons_rows = db.execute("SELECT * FROM lessons WHERE course_id=? ORDER BY lesson_order", (c["id"],)).fetchall()
@@ -637,7 +650,7 @@ def courses():
     
     db = get_db()
     user_id = session["user_id"]
-    db_courses = db.execute("SELECT * FROM courses ORDER BY created_at DESC").fetchall()
+    db_courses = db.execute("SELECT * FROM courses WHERE is_archived=0 ORDER BY created_at DESC").fetchall()
     all_courses = []
     for c in db_courses:
         lessons_rows = db.execute("SELECT * FROM lessons WHERE course_id=? ORDER BY lesson_order", (c["id"],)).fetchall()
@@ -727,9 +740,11 @@ def exam(course_id):
 @app.route("/notes", methods=["GET", "POST"])
 @login_required
 def notes():
+    course_id = request.args.get("course_id", "")
     db = get_db()
     if request.method == "POST":
         action = request.form.get("action")
+        course_id_post = request.form.get("course_id", "")
         if action == "delete":
             note_id = request.form.get("note_id")
             db.execute("DELETE FROM notes WHERE id=? AND user_id=?", (note_id, session["user_id"]))
@@ -742,20 +757,30 @@ def notes():
             if content:
                 note_id = str(uuid.uuid4())
                 db.execute(
-                    "INSERT INTO notes (id, user_id, title, content, color, date) VALUES (?,?,?,?,?,?)",
-                    (note_id, session["user_id"], title, content, color, datetime.utcnow().isoformat())
+                    "INSERT INTO notes (id, user_id, course_id, title, content, color, date) VALUES (?,?,?,?,?,?,?)",
+                    (note_id, session["user_id"], course_id_post if course_id_post else None, title, content, color, datetime.utcnow().isoformat())
                 )
                 db.commit()
                 flash("Note saved successfully.", "success")
             else:
                 flash("Please write something before saving.", "info")
+        if course_id_post:
+            return redirect(url_for("notes", course_id=course_id_post))
         return redirect(url_for("notes"))
     search = request.args.get("q", "").lower()
-    rows = db.execute("SELECT * FROM notes WHERE user_id=? ORDER BY date DESC", (session["user_id"],)).fetchall()
+    
+    if course_id:
+        rows = db.execute("SELECT * FROM notes WHERE user_id=? AND course_id=? ORDER BY date DESC", (session["user_id"], course_id)).fetchall()
+        course = db.execute("SELECT title FROM courses WHERE id=?", (course_id,)).fetchone()
+        course_title = course["title"] if course else ""
+    else:
+        rows = db.execute("SELECT * FROM notes WHERE user_id=? ORDER BY date DESC", (session["user_id"],)).fetchall()
+        course_title = ""
+        
     all_notes = [dict(r) for r in rows]
     if search:
         all_notes = [n for n in all_notes if search in n["title"].lower() or search in n["content"].lower()]
-    return render_template("notes.html", user=current_user(), notes=all_notes, search=search)
+    return render_template("notes.html", user=current_user(), notes=all_notes, search=search, course_id=course_id, course_title=course_title)
 
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
@@ -967,7 +992,7 @@ def admin():
     for c in db_courses:
         count = db.execute("SELECT COUNT(*) FROM lessons WHERE course_id=?", (c["id"],)).fetchone()[0]
         extra_courses.append({"id": c["id"], "title": c["title"], "level": c["level"],
-                               "category": c["category"], "emoji": c["emoji"], "lessons_count": count})
+                               "category": c["category"], "emoji": c["emoji"], "lessons_count": count, "is_archived": c["is_archived"] if "is_archived" in c.keys() else 0})
     all_users = db.execute("SELECT id, name, email, role FROM users ORDER BY id").fetchall()
     return render_template("admin.html", user=current_user(), courses=extra_courses, all_users=all_users,
                            total_courses=len(extra_courses), total_users=len(all_users))
@@ -1131,10 +1156,13 @@ def admin_edit_course(course_id):
 @admin_required
 def admin_delete_course(course_id):
     db = get_db()
-    db.execute("DELETE FROM lessons WHERE course_id=?", (course_id,))
-    db.execute("DELETE FROM courses WHERE id=?", (course_id,))
-    db.commit()
-    flash("Course deleted.", "info")
+    c = db.execute("SELECT is_archived FROM courses WHERE id=?", (course_id,)).fetchone()
+    if c:
+        new_val = 0 if c["is_archived"] else 1
+        db.execute("UPDATE courses SET is_archived=? WHERE id=?", (new_val, course_id))
+        db.commit()
+        msg = "Course unarchived." if new_val == 0 else "Course archived."
+        flash(msg, "info")
     return redirect(url_for("admin"))
 
 @app.route("/admin/user/create", methods=["POST"])

@@ -23,9 +23,14 @@
 {% block content %}
 <div class="page-hero">
   <div class="container">
-    <div class="section-label">My Notes</div>
-    <h1 class="page-hero-title">Personal Notebook</h1>
+    <div class="section-label">{% if course_title %}Course Notes{% else %}My Notes{% endif %}</div>
+    <h1 class="page-hero-title">{% if course_title %}{{ course_title }}{% else %}Personal Notebook{% endif %}</h1>
     <p class="page-hero-subtitle">Capture your thoughts, key concepts, and anything worth remembering.</p>
+    {% if course_id %}
+    <div style="margin-top: 16px;">
+      <a href="{{ url_for('lesson', course_id=course_id) }}" class="btn btn-secondary btn-sm"><i data-lucide="arrow-left" style="width:14px;height:14px;margin-right:6px;"></i> Back to Course</a>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -36,6 +41,7 @@
       <h2 style="display:flex;align-items:center;gap:8px;"><i data-lucide="edit-3" style="width:18px;height:18px;color:var(--accent);"></i> New Note</h2>
       <form method="POST" action="{{ url_for('notes') }}" id="note-form">
         <input type="hidden" name="action" value="add"/>
+        <input type="hidden" name="course_id" value="{{ course_id or '' }}"/>
         <input type="hidden" name="color" id="selected-color" value="cyan"/>
         <div class="form-group">
           <label class="form-label" for="note-title">Title</label>
@@ -82,6 +88,7 @@
             <div class="note-actions">
               <form method="POST" action="{{ url_for('notes') }}" style="display:inline;" onsubmit="return confirm('Delete this note?')">
                 <input type="hidden" name="action" value="delete"/>
+                <input type="hidden" name="course_id" value="{{ course_id or '' }}"/>
                 <input type="hidden" name="note_id" value="{{ note.id }}"/>
                 <button type="submit" class="note-action-btn" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
               </form>

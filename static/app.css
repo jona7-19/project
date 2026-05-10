@@ -778,10 +778,10 @@ footer {
 }
 #chatbot-panel {
   position: fixed;
-  top: 0;
+  top: var(--nav-h);
   right: 0;
   width: 400px;
-  height: 100vh;
+  height: calc(100vh - var(--nav-h));
   background: var(--bg-card);
   border-left: 1px solid var(--border);
   box-shadow: -10px 0 40px rgba(0,0,0,0.5);
